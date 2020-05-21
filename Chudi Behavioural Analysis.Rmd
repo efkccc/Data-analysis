@@ -314,16 +314,29 @@ incorrect_trials
 
 sd_rt1 <- sd(correct_trials$mean_rt)
 sd_rt0 <- sd(incorrect_trials$mean_rt)
+
+p.det <- t.test(response_time~response, mu=0, alt="two.sided",conf=0.95,data=Behavioural_Det)$p.value
+p.dis <-t.test(response_time~response, mu=0, alt="two.sided", conf=0.95,data=Behavioural_Dis)$p.value
+ttil <-t.test(response_time~response, mu=0, alt="two.sided", conf=0.95,data=Behavioural_Til)$statistic
+p.til <-t.test(response_time~response, data=Behavioural_Til)$p.value
+
+vertical <- Behavioural_Til %>%
+  filter(response=="0")
+vertical
+
+tilted <- Behavioural_Til %>%
+  filter(response=="1")
+tilted
+
 ```
 ### Mean performance for each task 
 Performan across the three tasks, detection (accuracy= `r format(round(unname(getmean['Detection']), 2), nsmall = 2)`, d'= `r format(round(print(d_det), 2), nsmall = 2)`),  discrimination (accuracy= `r format(round(unname(getmean['Discrimination']), 2), nsmall = 2)`, d'= `r format(round(print(d_dis), 2), nsmall = 2)`) and tilt recognition (accuracy = `r format(round(unname(getmean['Tilt']), 2), nsmall = 2)`, d'= `r format(round(print(d_til), 2), nsmall = 2)`) was similar. An one-way ANOVA failed to detect a significant difference between the accuracy of these threee tasks (F= `r format(round(F1, 2), nsmall=2)`, p= `r format(round(p1, 2), nsmall=2)`, ) and d' (F= `r format(round(F2, 2), nsmall=2)`, p= `r format(round(p2, 2), nsmall=2)`).
 
 The probability of responding YES in detection was `r format(round(print(det_bias), 2), nsmall = 2)` ± `r format(round(print(sd_bias1), 2), nsmall = 2)`), and was significantly different from 0.5. The probability of responding CLOCKWISE was `r format(round(print(dis_bias), 2), nsmall = 2)` ± `r format(round(print(sd_bias2), 2), nsmall = 2)`) and was not significantly different from 0.5. For the tilt recognition task, the probability of responding TILTED was`r format(round(print(til_bias), 2), nsmall = 2)` ± `r format(round(print(sd_bias3), 2), nsmall = 2)`).
 
-Response time was faster on average for correct response (`r format(round(unname(getmean1['correct']), 2), nsmall = 2)` ± `r format(round(print(sd_rt1), 2), nsmall = 2)`) than incorrect responses (`r format(round(unname(getmean1['incorrect']), 2), nsmall = 2)` ± `r format(round(print(sd_rt0), 2), nsmall = 2)`). 
+Response time was faster on average for correct response (`r format(round(unname(getmean1['correct']), 2), nsmall = 2)` ± `r format(round(print(sd_rt1), 2), nsmall = 2)` seconds) than incorrect responses (`r format(round(unname(getmean1['incorrect']), 2), nsmall = 2)` ± `r format(round(print(sd_rt0), 2), nsmall = 2)`seconds). A one-way analyssi of variance failed to detect a significant overall effect of responses type in detection (YES vs. NO, p=`r format(round(print(p.det), 2), nsmall = 2)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, p= `r format(round(print(p.dis), 2), nsmall = 2)`). However, there was significant differences in the response time of TILTED and VERTICAl response for the tilt recognition task (t=`r format(round(print(ttil), 2), nsmall = 2)`), p= `r format(round(print(p.til), 2), nsmall = 2)`), which was due to faster VERTICAL response (m= `r format(round(print(mean(vertical$response_time)), 2), nsmall = 2)` seconds),than TILTED (m= `r format(round(print(mean(tilted$response_time)), 2), nsmall = 2)`seconds).
 
 ## 2.Confidence distributions
-
 ```{r echo=FALSE}
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 
