@@ -418,7 +418,8 @@ conf_prob <- Behavioural_Excluded %>%
   group_by(subj_id, task, stimulus, response, accuracy, confidence) %>%
   summarise(no_trials=(count=n())) %>%
   inner_join(sti, by = c ("subj_id","task", "stimulus")) %>%
-  mutate(prob= no_trials/total_sti_trials)
+  mutate(probability= no_trials/total_sti_trials) %>%
+  mutate(prob= confidence*probability)
 conf_prob
 
 #ROC detection 
