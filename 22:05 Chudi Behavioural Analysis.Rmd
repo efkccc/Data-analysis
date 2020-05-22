@@ -452,34 +452,56 @@ conf_prob_til0
 ```
 
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.8, fig.height=3.8}
-####################################
-#ROC detection plotting
-####################################
-par(pty="s")
-roc(conf_prob_det1$accuracy, conf_prob_det1$prob, plot=TRUE, legacy.axes=TRUE,
-    percent = TRUE, xlab="False positive rate", ylab="Hit rate", main="Fig.5 Detection Type 1 ROC", col="#377eb8", print.auc=TRUE)
-plot.roc (conf_prob_det0$accuracy, conf_prob_det0$prob,
-          percent = TRUE, add=TRUE, col="#e41a1c", print.auc=TRUE, print.auc.y=38)
-legend("bottomright", legend = c("Yes", "No"), col=c("#377eb8","#e41a1c"),cex=0.8, lwd=3)
+
+#ROC preparation
+sti <- Behavioural_Excluded %>%
+  group_by(subj_id, task, stimulus) %>%
+  summarise(total_sti_trials=(count=n())) 
+sti
+
+conf_prob <- Behavioural_Excluded %>%
+  group_by(subj_id, task, stimulus, response, accuracy, confidence) %>%
+  summarise(no_trials=(count=n())) %>%
+  inner_join(sti, by = c ("subj_id","task", "stimulus")) %>%
+  mutate(probability= no_trials/total_sti_trials) %>%
+  mutate(prob= confidence*probability)
+conf_prob
+
+######################################
+#ROC detection plotting#
+######################################
+conf_prob_det<- conf_prob %>%
+  filter(task=="Detection") %>%
+  group_by(task, stimulus, response,accuracy, confidence) %>%
+  summarise(mean_prob=mean(prob))
+conf_prob_det
+
+roc(conf_prob_det$accuracy, conf_prob_det$mean_prob, plot=TRUE, legacy.axes=TRUE,
+    percent = TRUE, xlab="False positive rate", ylab="Hit rate", main="Detection Type 1 ROC", col="#1f78b4", lwd=4, print.auc=TRUE)
 
 ####################################
 #ROC discrimination plotting
 ####################################
-roc(conf_prob_dis1$accuracy, conf_prob_dis1$prob, plot=TRUE, legacy.axes=TRUE,
-    percent = TRUE, xlab="False positive rate", ylab="Hit rate", main="Fig.6 Discrimination Type 1 ROC", col="#984ea3", print.auc=TRUE)
-roc.dis <- plot.roc (conf_prob_dis0$accuracy, conf_prob_dis0$prob,
-                     percent = TRUE, add=TRUE, col="#4daf4a", print.auc=TRUE, print.auc.y=38)
-legend("bottomright", legend = c("Clockwise", "Anticlockwise"), col=c("#984ea3","#4daf4a"), cex=0.8,lwd=3)
+conf_prob_dis<- conf_prob %>%
+  filter(task=="Discrimination") %>%
+  group_by(task, stimulus, response,accuracy, confidence) %>%
+  summarise(mean_prob=mean(prob))
+conf_prob_dis
+
+roc(conf_prob_dis$accuracy, conf_prob_dis$mean_prob, plot=TRUE, legacy.axes=TRUE,
+    percent = TRUE, xlab="False positive rate", ylab="Hit rate", main="Discrimination Type 1 ROC", col="#fc8d62", lwd=4, print.auc=TRUE)
 
 #####################################
 #ROC tilt plotting
 #####################################
-roc(conf_prob_dis1$accuracy, conf_prob_dis1$prob, plot=TRUE, legacy.axes=TRUE,
-    percent = TRUE, xlab="False positive rate", ylab="Hit rate", main="Fig.7 Tilt Type 1 ROC", col="#8da0cb", print.auc=TRUE)
-plot.roc (conf_prob_dis0$accuracy, conf_prob_dis0$prob,
-          percent = TRUE, add=TRUE, col="#fc8d62", print.auc=TRUE, print.auc.y=38)
-legend("bottomright", legend = c("Tilted", "Vertical"), cex=0.8, col=c("#8da0cb","#fc8d62"), lwd=3)
+conf_prob_til<- conf_prob %>%
+  filter(task=="Tilt") %>%
+  group_by(task, stimulus, response,accuracy, confidence) %>%
+  summarise(mean_prob=mean(prob))
+conf_prob_til
 
+roc(conf_prob_til$accuracy, conf_prob_til$mean_prob, plot=TRUE, legacy.axes=TRUE,
+    percent = TRUE, xlab="False positive rate", ylab="Hit rate", main="Tilt Type 1 ROC", col="#8dd3c7",lwd=4, print.auc=TRUE)
 ```
 &nbsp;
 
