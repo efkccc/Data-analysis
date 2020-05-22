@@ -157,7 +157,7 @@ hit_detect
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 data <- individual_accuracy
 ggplot(data, mapping = aes(x= task, y=correct)) + labs(title="Fig.1 Mean accuracy", y="mean accuracy")+ theme_classic() +
-   geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.5, size=4) + scale_y_continuous(breaks=number_ticks(10))
+   geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(10))
 
 ```
 
