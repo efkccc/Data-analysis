@@ -1,0 +1,873 @@
+---
+title: "Behavioural Analysis"
+author: "Chudi Gong"
+date: "29/05/2020"
+output: pdf_document
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(ggplot2)
+library(tinytex)
+library(dplyr)
+library(magrittr)
+library(ggplot2)
+library(readr)
+library(tidyr)
+library(RColorBrewer)
+library(pROC)
+getwd()
+```
+
+```{r include=FALSE}
+#open file
+Data <- read.csv("Data.csv")
+
+#creat a new file with only includedtrials 
+Behavioural_Valid <- Data %>% 
+  #Filter out the excluded trials 
+  filter(inclusion==1) %>%
+  filter(! response=="NaN") 
+Behavioural_Valid 
+Behavioural_Valid[,'log_rt']=log(Behavioural_Valid[,'response_time'])
+
+#get number of subjects
+Behavioural_subj <- Behavioural_Valid %>% 
+  group_by(subj_id) %>%
+  summarise(totaltrials=(count=n()))
+Behavioural_subj
+no_subj <- nrow(Behavioural_subj)
+
+Behavioural_Det <- Behavioural_Valid %>% 
+  #only include detection 
+  filter(task=="Detection")
+Behavioural_Det
+
+Behavioural_Dis <- Behavioural_Valid %>% 
+  #only include detection 
+  filter(task=="Discrimination")
+Behavioural_Dis
+
+Behavioural_Til<- Behavioural_Valid %>% 
+  #only include detection 
+  filter(task=="Tilt")
+Behavioural_Til
+
+#count the total no of trials for each task for each participant
+total_trials <- Behavioural_Valid %>%
+  group_by(subj_id, task) %>%
+  summarise(totaltrials=(count=n()))
+total_trials
+
+#get the number of trials for each participants where they responded 1, p for positive
+p_trials <- Behavioural_Valid %>%
+  group_by(subj_id, task) %>%
+  filter(response=="1") %>%
+  summarise(p_trials=(count=n()))
+p_trials
+
+#count no. of correct trials for each task for each participant
+individual_trials <- Behavioural_Valid %>% 
+  #group by ID, type of task and accuracy
+  group_by(subj_id, task, accuracy) %>% 
+  #count number of correct/incorrect/NAH trials 
+  summarize(no_trials=(count = n())) %>%
+  #combine with the total data frame
+  inner_join(total_trials, by = c ("subj_id","task")) %>%
+  mutate(proportion = no_trials / totaltrials)
+individual_trials
+
+#display accuracy 
+individual_accuracy <- individual_trials %>%
+  filter(accuracy==1) %>%
+  rename(correct=proportion)
+individual_accuracy
+
+```
+
+## 1.Performance across different tasks.
+
+```{r, echo=FALSE, message=FALSE}
+number_ticks <- function(n) {function(limits) pretty(limits, n)}
+data <- individual_accuracy
+ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs(title="Fig.1 Mean accuracy", y="mean accuracy")+ theme_classic() +
+   geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(12))
+
+```
+
+
+```{r, include=FALSE}
+#display accuracy for each task 
+task_accuracy <- individual_accuracy %>%
+  group_by(task) %>%
+  summarise(mean(correct))
+task_accuracy
+
+data1 <- task_accuracy
+getmean <- data1$'mean(correct)'
+names(getmean) <-data1$task
+
+#ANOVA comparing task performance 
+aov.Mean_accuracy <- aov(correct~task,data=individual_accuracy)
+summary(aov.Mean_accuracy)
+p1 <- summary(aov.Mean_accuracy)[[1]][["Pr(>F)"]][[1]]
+F1 <- summary(aov.Mean_accuracy)[[1]][["F value"]][[1]]
+
+#############################
+#calculating HIT and FA rate
+#############################
+
+#combine with the ptrials data frame
+trials <- Behavioural_Valid %>% 
+  #group by ID, type of task and accuracy
+  group_by(subj_id, task, accuracy, response) %>% 
+  #count number of correct/incorrect/NAH trials 
+  summarize(no_trials=(count = n())) %>%
+  inner_join(p_trials, by = c ("subj_id","task"))
+trials
+
+hit_detect <- individual_trials %>% 
+  filter(task=="Detection", accuracy=="1") %>%
+  summarize(no_trials=(count = n()))
+hit_detect
+
+#calculating HIT FA rate for detection
+hit_det <- trials %>% 
+  filter(task=="Detection", response== "1", accuracy=="1") %>%
+  mutate(hit_rate = no_trials / p_trials) %>%
+  mutate(z_hit= qnorm(hit_rate))
+hit_det
+det_hit <- mean(hit_det$hit_rate)
+
+fa_det <- trials %>% 
+  filter(task=="Detection", response== "1", accuracy=="0") %>%
+  mutate(fa_rate = no_trials / p_trials) %>%
+  mutate(z_fa= qnorm(fa_rate)) %>%
+  inner_join(hit_det, by = c ("subj_id","task", "response", "p_trials")) %>%
+  mutate(dprime= z_hit-z_fa)
+fa_det
+
+det_fa <- mean(fa_det$fa_rate)
+
+#calculating HIT FA for discrimination
+hit_dis <- trials %>% 
+  filter(task=="Discrimination", response== "1", accuracy=="1") %>%
+  mutate(hit_rate = no_trials / p_trials) %>%
+  mutate(z_hit= qnorm(hit_rate))
+hit_dis
+
+fa_dis<- trials %>% 
+  filter(task=="Discrimination", response== "1", accuracy=="0") %>%
+  mutate(fa_rate = no_trials / p_trials)%>%
+  mutate(z_fa= qnorm(fa_rate)) %>%
+  inner_join(hit_dis, by = c ("subj_id","task", "response", "p_trials")) %>%
+  mutate(dprime= z_hit-z_fa)
+fa_dis
+
+#calculating HIT FA rate for tilt
+hit_til <- trials %>% 
+  filter(task=="Tilt", response== "1", accuracy=="1") %>%
+  mutate(hit_rate = no_trials / p_trials) %>%
+  mutate(z_hit= qnorm(hit_rate))
+hit_til
+
+til_hit <- mean(hit_til$hit_rate)
+
+fa_til<- trials %>% 
+  filter(task=="Tilt", response== "1", accuracy=="0") %>%
+  mutate(fa_rate = no_trials / p_trials) %>%
+  mutate(z_fa= qnorm(fa_rate)) %>%
+  inner_join(hit_til, by = c ("subj_id","task", "response", "p_trials")) %>%
+  mutate(dprime= z_hit-z_fa) 
+fa_til
+til_fa <- mean(fa_til$fa_rate)
+
+#merge together 
+d_prime <- rbind(fa_det, fa_dis, fa_til)
+
+#d values for each task
+d_det <- mean(fa_det$dprime)
+d_dis <- mean(fa_dis$dprime)
+d_til <- mean(fa_til$dprime)
+
+#ANOVA Calculation for d prime
+aov.d <- aov(dprime~task, data=d_prime)
+summary(aov.d)
+p2 <- summary(aov.d)[[1]][["Pr(>F)"]][[1]]
+F2<- summary(aov.d)[[1]][["F value"]][[1]]
+
+#response bias 
+response <- Behavioural_Valid %>% 
+  #group by ID, type of task and accuracy
+  group_by(subj_id,task, response) %>% 
+  #count number of correct/incorrect/NAH trials 
+  summarize(no_trials=(count = n())) %>%
+  #combine with the total data frame
+  inner_join(total_trials, by = c ("task","subj_id")) %>%
+  mutate(probability = no_trials / totaltrials)
+response
+
+#response bias for detection
+det_resp <- response %>%
+  filter(task=="Detection") %>%
+  filter(response=="1")
+det_resp
+
+det_bias <- mean(det_resp$probability)
+sd_bias1 <- sd(det_resp$probability)
+detection<- (rnorm(no_subj, mean = det_bias, sd = sd_bias1))
+t.test(detection, mu = 0.5) # Ho: mu = 0.5
+
+#response bias for discrimination
+dis_resp <- response %>%
+  filter(task=="Discrimination") %>%
+  filter(response=="1")
+dis_resp
+
+dis_bias <- mean(dis_resp$probability)
+sd_bias2 <- sd(dis_resp$probability)
+discrimination<- (rnorm(no_subj, mean = dis_bias, sd = sd_bias2))
+t.test(discrimination, mu = 0.5) # Ho: mu = 0.5
+
+#response bias for tilt recognition
+til_resp <- response %>%
+  filter(task=="Tilt") %>%
+  filter(response=="1")
+til_resp
+
+til_bias <- mean(til_resp$probability)
+sd_bias3 <- sd(til_resp$probability)
+tilt<- (rnorm(no_subj, mean = til_bias, sd = sd_bias3))
+t.test(tilt, mu = 0.5) # Ho: mu = 0.5
+
+#############################
+#calculating rt
+#############################
+rt <- Behavioural_Valid %>%
+  group_by(subj_id, task, response, accuracy) %>%
+  summarise(mean(log_rt)) %>%
+  rename("mean_rt"="mean(log_rt)")
+rt
+
+#calculating mean rt for correct and incorrect trials
+rt_accuracy <- rt %>%
+  group_by(accuracy) %>%
+  summarise(median(mean_rt)) %>%
+  rename("median_rt"="median(mean_rt)") 
+rt_accuracy
+
+rt_accuracy$accuracy[rt_accuracy$accuracy=="0"]<-"incorrect"
+rt_accuracy$accuracy[rt_accuracy$accuracy=="1"]<-"correct"
+
+#calling out mean rt for correct and incorrect trials
+getmedian <- rt_accuracy$'median_rt'
+names(getmedian) <-rt_accuracy$accuracy
+
+#calculating sd of rt for correct and incorrect trials
+correct_trials <- rt %>%
+  filter(accuracy==1)
+correct_trials
+
+incorrect_trials <- rt %>%
+  filter(accuracy==0)
+incorrect_trials 
+
+sd_rt1 <- sd(correct_trials$mean_rt)
+sd_rt0 <- sd(incorrect_trials$mean_rt)
+
+p.det <- t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,data=Behavioural_Det)$p.value
+p.dis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,data=Behavioural_Dis)$p.value
+ttil <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,data=Behavioural_Til)$statistic
+p.til <-t.test(log_rt~response, data=Behavioural_Til)$p.value
+
+vertical <- Behavioural_Til %>%
+  filter(response=="0")
+vertical
+
+tilted <- Behavioural_Til %>%
+  filter(response=="1")
+tilted
+
+```
+### Mean performance for each task 
+Performan across the three tasks, detection (accuracy= `r format(round(unname(getmean['Detection']), 2), nsmall = 2)`, d'= `r format(round(print(d_det), 2), nsmall = 2)`),  discrimination (accuracy= `r format(round(unname(getmean['Discrimination']), 2), nsmall = 2)`, d'= `r format(round(print(d_dis), 2), nsmall = 2)`) and tilt recognition (accuracy = `r format(round(unname(getmean['Tilt']), 2), nsmall = 2)`, d'= `r format(round(print(d_til), 2), nsmall = 2)`) was similar. An one-way ANOVA failed to detect a significant difference between the accuracy of these threee tasks (F= `r format(round(F1, 2), nsmall=2)`, p= `r format(round(p1, 2), nsmall=2)`, ) and d' (F= `r format(round(F2, 2), nsmall=2)`, p= `r format(round(p2, 2), nsmall=2)`).
+
+The probability of responding YES in detection was `r format(round(print(det_bias), 2), nsmall = 2)` (± `r format(round(print(sd_bias1), 2), nsmall = 2)`), and was significantly different from 0.5 (ADD T TEST RESULTS). The probability of responding CLOCKWISE was `r format(round(print(dis_bias), 2), nsmall = 2)` (± `r format(round(print(sd_bias2), 2), nsmall = 2)`) and was not significantly different from 0.5. For the tilt recognition task, the probability of responding TILTED was `r format(round(print(til_bias), 2), nsmall = 2)` ( ± `r format(round(print(sd_bias3), 2), nsmall = 2)`).
+
+Response time was faster on average for correct response (`r format(round(unname(getmedian['correct']), 2), nsmall = 2)` ± `r format(round(print(sd_rt1), 2), nsmall = 2)` seconds) than incorrect responses (`r format(round(unname(getmedian['incorrect']), 2), nsmall = 2)` ± `r format(round(print(sd_rt0), 2), nsmall = 2)`seconds). A one-way analyssi of variance failed to detect a significant overall effect of responses type in detection (YES vs. NO, p=`r format(round(print(p.det), 2), nsmall = 2)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, p= `r format(round(print(p.dis), 2), nsmall = 2)`) and tilt recognition (t=`r format(round(print(ttil), 2), nsmall = 2)`), p= `r format(round(print(p.til), 2), nsmall = 2)`). 
+
+```{r echo=FALSE}
+#mean confidence frequency 
+confidence_distribution <- Behavioural_Valid %>%
+  group_by(task,confidence,response) %>%
+  summarise(no_trials=(count=n())) %>%
+  mutate(frequency = no_trials / no_subj)
+confidence_distribution
+
+#creat a new file with only detection 
+confidence_detection <- confidence_distribution %>% 
+  #only include detection 
+  filter(task=="Detection")
+confidence_detection
+
+confidence_detection$response[confidence_detection$response=="0"] <- "No"
+confidence_detection$response[confidence_detection$response=="1"] <- "Yes"
+
+#creat a new file with only discrimination 
+confidence_discrimination <- confidence_distribution %>% 
+  #only include discrimination 
+  filter(task=="Discrimination") 
+confidence_discrimination
+confidence_discrimination$response[confidence_discrimination$response=="0"]<-"Anticlockwise"
+confidence_discrimination$response[confidence_discrimination$response=="1"]<-"Clockwise"
+
+#creat a new file with only tilt recognition 
+confidence_tilt <- confidence_distribution %>% 
+  #only include til recognition 
+  filter(task=="Tilt") 
+confidence_tilt
+
+confidence_tilt$response[confidence_tilt$response=="0"] <-"Vertical"
+confidence_tilt$response[confidence_tilt$response=="1"] <-"Tilted"
+number_ticks <- function(n) {function(limits) pretty(limits, n)}
+
+#SE calculation  (the standard deviation divided by the square root of the sample size)
+se <- function(x) sqrt(var(x)/length(x))
+pd <- position_dodge(0.5) # move them .05 to the left and right
+ci <- se(confidence_detection$frequency)
+```
+
+## 2.Confidence distributions
+```{r echo=FALSE}
+#plot the frequency of confidence ratings for detection
+data2 <- confidence_detection
+cbPalette <- c("#e41a1c", "#377eb8")
+confidence_det <- ggplot(data2, mapping = aes(x = confidence, y= frequency, fill= response)) +
+  geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+ scale_fill_manual(values=cbPalette) + theme_classic() + labs(title="Fig.2 Detection", y="frequency")+ scale_x_continuous(breaks=number_ticks(6)) + geom_errorbar(aes(ymin=frequency-ci, ymax=frequency+ci), width=.1, position=pd) +ylim(0,30)
+confidence_det
+
+cii <- se(confidence_discrimination$frequency)
+data3 <- confidence_discrimination
+caPalette <- c("#4daf4a", "#984ea3")
+
+#plot the frequency of confidence ratings for discrimination
+confidence_dis <- ggplot(data3, mapping = aes(x = confidence, y= frequency, fill=response)) +
+  geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+ scale_fill_manual(values=caPalette) + theme_classic() + labs(title="Fig.3 Discrimination", y="frequency")+ scale_x_continuous(breaks=number_ticks(6)) +
+  geom_errorbar(aes(ymin=frequency-cii, ymax=frequency+cii), width=.1, position=pd) +ylim(0,30)
+confidence_dis
+
+ciii <- se(confidence_tilt$frequency)
+data4 <- confidence_tilt
+ccPalette <- c("#fc8d62", "#8da0cb")
+#plot the frequency of confidence ratings for tilt recognition 
+confidence_til<- ggplot(data4, mapping = aes(x = confidence, y= frequency, fill= response)) +
+  geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+ scale_fill_manual(values=ccPalette) + theme_classic() + labs(title="Fig.4 Tilt recognition", y="frequency")+ scale_x_continuous(breaks=number_ticks(6)) +
+  geom_errorbar(aes(ymin=frequency-ciii, ymax=frequency+ciii), width=.1, position=pd)+ylim(0,30)
+confidence_til
+```
+
+```{r include=FALSE}
+det <- Behavioural_Valid %>%
+  filter(task=="Detection") 
+det
+
+dis <- Behavioural_Valid %>%
+  filter(task=="Discrimination") 
+dis
+
+til <- Behavioural_Valid %>%
+  filter(task=="Tilt") 
+til
+
+p1 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = det)$p.value
+t1 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = det)$statistic
+p3 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = til)$p.value
+t3 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = til)$statistic
+```
+Within detection, a significant difference in mean confidence was observed between YES (target present) and NO (target absent) responses (see Fig.4 above), such that participants are more confident in their YES responses (t=`r format(round(print(t1), 2), nsmall = 2)`, p = `r format(round(print(p1), 2), nsmall = 2)`) and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (t=`r format(round(print(t3), 2), nsmall = 2)`, p = `r format(round(print(p3), 2), nsmall = 2)`).
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+## 3.Type 1 ROC curves
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
+#Type 1 ROC preparation
+sti <- Behavioural_Valid %>%
+  group_by(subj_id, task, stimulus) %>%
+  summarise(total_sti_trials=(count=n())) 
+sti
+
+acc <- Behavioural_Valid %>%
+  group_by(subj_id, task, accuracy, response) %>%
+  summarise(total_acc_trials=(count=n())) 
+acc
+
+conf_prob_acc <- Behavioural_Valid %>%
+  group_by(subj_id, task, stimulus, response, accuracy, confidence) %>%
+  summarise(no_trials=(count=n())) %>%
+  inner_join(acc, by = c ("subj_id","task", "response","accuracy")) %>%
+  mutate(prob_acc= no_trials/total_acc_trials)
+conf_prob_acc
+
+conf_prob <- Behavioural_Valid %>%
+  group_by(subj_id, task, stimulus, response, accuracy, confidence) %>%
+  summarise(no_trials=(count=n())) %>%
+  inner_join(sti, by = c ("subj_id","task", "stimulus")) %>%
+  mutate(prob= no_trials/total_sti_trials) %>%
+  inner_join(conf_prob_acc, by = c ("subj_id","task", "stimulus", "response", "confidence","accuracy", "no_trials"))
+conf_prob
+
+#Detection peparation
+conf_det <- conf_prob %>%
+  filter(task=="Detection")
+conf_det
+
+conf_det_0 <- subset(conf_det, stimulus=="0", select=c(confidence, response, prob))
+conf_det_0 <- conf_det_0[order(conf_det_0[,1,2]),]
+
+confdet0 <- conf_det_0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob/no_subj)
+confdet0
+
+conf_det_1 <- subset(conf_det, stimulus=="1", select=c(confidence, response, prob))
+conf_det_1 <- conf_det_1[order(conf_det_1[,1,2]),]
+
+confdet1 <- conf_det_1%>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob/no_subj)
+confdet1
+
+confdet0[,'prob']=round(confdet0[,'prob'],5)
+confdet1[,'prob']=round(confdet1[,'prob'],5)
+
+confdet0_1 <- confdet0 %>%
+  filter(response=="1")
+confdet0_1
+
+confdet0_0 <- confdet0 %>%
+  filter(response=="0")
+confdet0_0
+
+confdet0_1 <- confdet0_1[order(-confdet0_1$confidence),]
+confdet0_0 <- confdet0_0[order(confdet0_0$confidence),]
+
+confdet0 <- rbind(confdet0_1,confdet0_0)
+confdet0[,'prob0']=cumsum(confdet0[,'prob']) 
+
+confdet1_0 <- confdet1 %>%
+  filter(response=="0")
+confdet1_0
+
+confdet1_1 <- confdet1 %>%
+  filter(response=="1")
+confdet1_1
+
+confdet1_1 <- confdet1_1[order(confdet1_1$confidence),]
+confdet1_0 <- confdet1_0[order(-confdet1_0$confidence),]
+
+
+confdet1 <- rbind(confdet1_0,confdet1_1)
+
+confdet1[,'prob1']=cumsum(confdet1[,'prob']) 
+
+confdet1 <- select(confdet1, 1,4)
+confdet0 <- select(confdet0, 1,4)
+
+confdet1$ID <- seq.int(nrow(confdet1))
+confdet0$ID <- seq.int(nrow(confdet0))
+
+conf_dis_sti0 <- inner_join(confdet0,confdet1, by= c("ID"))
+
+#Discrimination peparation
+conf_dis <- conf_prob %>%
+  filter(task=="Discrimination")
+conf_dis
+
+conf_dis_0 <- subset(conf_dis, stimulus=="0", select=c(confidence, response, prob))
+conf_dis_0 <- conf_dis_0[order(conf_dis_0[,1,2]),]
+
+confdis0 <- conf_dis_0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob/no_subj)
+confdis0
+
+conf_dis_1 <- subset(conf_dis, stimulus=="1", select=c(confidence, response, prob))
+conf_dis_1 <- conf_dis_1[order(conf_dis_1[,1,2]),]
+
+confdis1 <- conf_dis_1%>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob/no_subj)
+confdis1
+
+confdis0[,'prob']=round(confdis0[,'prob'],5)
+confdis1[,'prob']=round(confdis1[,'prob'],5)
+
+confdis0_1 <- confdis0 %>%
+  filter(response=="1")
+confdis0_1
+
+confdis0_0 <- confdis0 %>%
+  filter(response=="0")
+confdis0_0
+
+confdis0_1 <- confdis0_1[order(-confdis0_1$confidence),]
+confdis0_0 <- confdis0_0[order(confdis0_0$confidence),]
+
+confdis0 <- rbind(confdis0_1,confdis0_0)
+confdis0[,'prob0']=cumsum(confdis0[,'prob']) 
+
+confdis1_0 <- confdis1 %>%
+  filter(response=="0")
+confdis1_0
+
+confdis1_1 <- confdis1 %>%
+  filter(response=="1")
+confdis1_1
+
+confdis1_1 <- confdis1_1[order(confdis1_1$confidence),]
+confdis1_0 <- confdis1_0[order(-confdis1_0$confidence),]
+
+
+confdis1 <- rbind(confdis1_0,confdis1_1)
+
+confdis1[,'prob1']=cumsum(confdis1[,'prob']) 
+
+confdis1 <- select(confdis1, 1,4)
+confdis0 <- select(confdis0, 1,4)
+
+confdis1$ID <- seq.int(nrow(confdis1))
+confdis0$ID <- seq.int(nrow(confdis0))
+
+conf_dis_sti0 <- inner_join(confdis0,confdis1, by= c("ID"))
+
+#Tilt peparation
+conf_til <- conf_prob %>%
+  filter(task=="Tilt")
+conf_til
+
+conf_til_0 <- subset(conf_til, stimulus=="0", select=c(confidence, response, prob))
+conf_til_0 <- conf_til_0[order(conf_til_0[,1,2]),]
+
+conftil0 <- conf_til_0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob/no_subj)
+conftil0
+
+conf_til_1 <- subset(conf_til, stimulus=="1", select=c(confidence, response, prob))
+conf_til_1 <- conf_til_1[order(conf_til_1[,1,2]),]
+
+conftil1 <- conf_til_1%>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob/no_subj)
+conftil1
+
+conftil0[,'prob']=round(conftil0[,'prob'],5)
+conftil1[,'prob']=round(conftil1[,'prob'],5)
+
+conftil0_1 <- conftil0 %>%
+  filter(response=="1")
+conftil0_1
+
+conftil0_0 <- conftil0 %>%
+  filter(response=="0")
+conftil0_0
+
+conftil0_1 <- conftil0_1[order(-conftil0_1$confidence),]
+conftil0_0 <- conftil0_0[order(conftil0_0$confidence),]
+
+conftil0 <- rbind(conftil0_1,conftil0_0)
+conftil0[,'prob0']=cumsum(conftil0[,'prob']) 
+
+conftil1_0 <- conftil1 %>%
+  filter(response=="0")
+conftil1_0
+
+conftil1_1 <- conftil1 %>%
+  filter(response=="1")
+conftil1_1
+
+conftil1_1 <- conftil1_1[order(conftil1_1$confidence),]
+conftil1_0 <- conftil1_0[order(-conftil1_0$confidence),]
+
+
+conftil1 <- rbind(conftil1_0,conftil1_1)
+
+conftil1[,'prob1']=cumsum(conftil1[,'prob']) 
+
+conftil1 <- select(conftil1, 1,4)
+conftil0 <- select(conftil0, 1,4)
+
+conftil1$ID <- seq.int(nrow(conftil1))
+conftil0$ID <- seq.int(nrow(conftil0))
+
+conf_til_sti0 <- inner_join(conftil0,conftil1, by= c("ID"))
+#################################### 
+# Plotting type 1 ROC
+####################################
+roc1_det <- ggplot(data=conf_dis_sti0, aes(x=prob0, y=prob1)) +
+  geom_line() +
+  geom_point() + labs(title="Fig.5 Type 1 ROC Detection", x= "FAR", y="HR")+ 
+  theme_classic() 
+roc1_det
+
+roc1_dis <- ggplot(data=conf_dis_sti0, aes(x=prob0, y=prob1)) +
+  geom_line() +
+  geom_point() + labs(title="Fig.6 Type 1 ROC Discrimination", x= "FAR", y="HR")+ 
+  theme_classic()
+roc1_dis
+
+roc1_til <- ggplot(data=conf_til_sti0, aes(x=prob0, y=prob1)) +
+  geom_line() +
+  geom_point() + labs(title="Fig.7 Type 1 ROC Tilt Recognition", x= "FAR", y="HR")+ 
+  theme_classic()
+roc1_til
+```
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+## 4.Type 2 ROC curves
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
+#Type 2 ROC preparation
+#Detection
+conf_det0 <- subset(conf_dis, accuracy=="0", select=c(confidence, response, prob_acc))
+conf_det0 <- conf_det0[order(conf_det0[,1,2]),]
+
+confdet_incorrect1 <- conf_det0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="1")
+confdet_incorrect1
+
+confdet_incorrect0 <- conf_det0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="0")
+confdet_incorrect0
+
+confdet_incorrect0 <- confdet_incorrect0[order(-confdet_incorrect0$confidence),]
+confdet_incorrect1 <- confdet_incorrect1[order(-confdet_incorrect1$confidence),]
+
+confdet_incorrect0[,'prob0']=cumsum(confdet_incorrect0[,'prob'])
+confdet_incorrect1[,'prob0']=cumsum(confdet_incorrect1[,'prob'])
+
+confdet_incorrect <- rbind(confdet_incorrect0, confdet_incorrect1)
+
+conf_det1 <- subset(conf_det, accuracy=="1", select=c(confidence, response, prob_acc))
+conf_det1 <- conf_det1[order(conf_det1[,1,2]),]
+
+confdet_correct1 <- conf_det1 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="1")
+confdet_correct1
+
+confdet_correct0 <- conf_det1 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="0")
+confdet_correct0
+
+confdet_correct0 <- confdet_correct0[order(-confdet_correct0$confidence),]
+confdet_correct1 <- confdet_correct1[order(-confdet_correct1$confidence),]
+
+confdet_correct0[,'prob1']=cumsum(confdet_correct0[,'prob'])
+confdet_correct1[,'prob1']=cumsum(confdet_correct1[,'prob'])
+
+confdet_correct <- rbind(confdet_correct0, confdet_correct1)
+confdet_acc <- inner_join(confdet_incorrect, confdet_correct, by=c("confidence", "response"))
+confdet_acc$response[confdet_acc$response=="0"] <- "No"
+confdet_acc$response[confdet_acc$response=="1"] <- "Yes"
+
+#Discrimination
+conf_dis0 <- subset(conf_dis, accuracy=="0", select=c(confidence, response, prob_acc))
+conf_dis0 <- conf_dis0[order(conf_dis0[,1,2]),]
+
+confdis_incorrect1 <- conf_dis0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="1")
+confdis_incorrect1
+
+confdis_incorrect0 <- conf_dis0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="0")
+confdis_incorrect0
+
+confdis_incorrect0 <- confdis_incorrect0[order(-confdis_incorrect0$confidence),]
+confdis_incorrect1 <- confdis_incorrect1[order(-confdis_incorrect1$confidence),]
+
+confdis_incorrect0[,'prob0']=cumsum(confdis_incorrect0[,'prob'])
+confdis_incorrect1[,'prob0']=cumsum(confdis_incorrect1[,'prob'])
+
+confdis_incorrect <- rbind(confdis_incorrect0, confdis_incorrect1)
+
+conf_dis1 <- subset(conf_dis, accuracy=="1", select=c(confidence, response, prob_acc))
+conf_dis1 <- conf_dis1[order(conf_dis1[,1,2]),]
+
+confdis_correct1 <- conf_dis1 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="1")
+confdis_correct1
+
+confdis_correct0 <- conf_dis1 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="0")
+confdis_correct0
+
+confdis_correct0 <- confdis_correct0[order(-confdis_correct0$confidence),]
+confdis_correct1 <- confdis_correct1[order(-confdis_correct1$confidence),]
+
+confdis_correct0[,'prob1']=cumsum(confdis_correct0[,'prob'])
+confdis_correct1[,'prob1']=cumsum(confdis_correct1[,'prob'])
+
+confdis_correct <- rbind(confdis_correct0, confdis_correct1)
+confdis_acc <- inner_join(confdis_incorrect, confdis_correct, by=c("confidence", "response"))
+confdis_acc$response[confdis_acc$response=="0"] <- "Anticlockwise"
+confdis_acc$response[confdis_acc$response=="1"] <- "Clockwise"
+
+#Tilt recognition
+conf_til0 <- subset(conf_til, accuracy=="0", select=c(confidence, response, prob_acc))
+conf_til0 <- conf_til0[order(conf_til0[,1,2]),]
+
+conftil_incorrect1 <- conf_til0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="1")
+conftil_incorrect1
+
+conftil_incorrect0 <- conf_til0 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="0")
+conftil_incorrect0
+
+conftil_incorrect0 <- conftil_incorrect0[order(-conftil_incorrect0$confidence),]
+conftil_incorrect1 <- conftil_incorrect1[order(-conftil_incorrect1$confidence),]
+
+conftil_incorrect0[,'prob0']=cumsum(conftil_incorrect0[,'prob'])
+conftil_incorrect1[,'prob0']=cumsum(conftil_incorrect1[,'prob'])
+
+conftil_incorrect <- rbind(conftil_incorrect0, conftil_incorrect1)
+
+conf_til1 <- subset(conf_til, accuracy=="1", select=c(confidence, response, prob_acc))
+conf_til1 <- conf_til1[order(conf_til1[,1,2]),]
+
+conftil_correct1 <- conf_til1 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="1")
+conftil_correct1
+
+conftil_correct0 <- conf_til1 %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(prob= prob_acc/no_subj) %>%
+  filter(response=="0")
+conftil_correct0
+
+conftil_correct0 <- conftil_correct0[order(-conftil_correct0$confidence),]
+conftil_correct1 <- conftil_correct1[order(-conftil_correct1$confidence),]
+
+conftil_correct0[,'prob1']=cumsum(conftil_correct0[,'prob'])
+conftil_correct1[,'prob1']=cumsum(conftil_correct1[,'prob'])
+
+conftil_correct <- rbind(conftil_correct0, conftil_correct1)
+conftil_acc <- inner_join(conftil_incorrect, conftil_correct, by=c("confidence", "response"))
+conftil_acc$response[conftil_acc$response=="0"] <- "Anticlockwise"
+conftil_acc$response[conftil_acc$response=="1"] <- "Clockwise"
+
+#################################### 
+# Plotting type 2 ROC
+####################################
+roc2_det <- ggplot(data=confdet_acc, aes(x=prob0, y=prob1)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 4) + 
+  scale_color_manual(values=c("#e41a1c", "#377eb8")) +
+  labs(title="Fig.8 Type 2 ROC Detection", x= "p(con|correct)", y="p(con|incorrect)", color="Response")+ 
+  theme_classic()+
+  theme(legend.position=c(0.9, 0.2),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank()) 
+roc2_det
+
+roc2_dis <- ggplot(data=confdis_acc, aes(x=prob0, y=prob1)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 4) + 
+  scale_color_manual(values=c("#4daf4a", "#984ea3")) +
+  labs(title="Fig.9 Type 2 ROC Discrimination", x= "p(con|correct)", y="p(con|incorrect)", color="Response")+ 
+  theme_classic() + 
+  theme(legend.position=c(0.9, 0.2),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank()) 
+roc2_dis
+
+roc2_til <- ggplot(data=conftil_acc, aes(x=prob0, y=prob1)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 4) + 
+  scale_color_manual(values=c("#fc8d62", "#8da0cb")) +
+  labs(title="Fig.10 Type 2 ROC Tilt", x= "p(con|correct)", y="p(con|incorrect)", color="Response")+ 
+  theme_classic() + 
+  theme(legend.position=c(0.9, 0.2),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank())
+roc2_til
+```
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+&nbsp;
+
+## Citation 
+[@denison2018pnasusa][@mazor2020e]
+&nbsp;
+
+## Reference 
