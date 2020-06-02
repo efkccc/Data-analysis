@@ -480,11 +480,11 @@ confdet0_0 <- confdet0 %>%
   filter(response=="0")
 confdet0_0
 #order noresponse with descending confidence rating and yes response with ascending confidence rating
-confdet0_1 <- confdet0_1[order(confdet0_1$confidence),]
-confdet0_0 <- confdet0_0[order(-confdet0_0$confidence),]
+confdet0_1 <- confdet0_1[order(-confdet0_1$confidence),]
+confdet0_0 <- confdet0_0[order(confdet0_0$confidence),]
 
 #rebind no stimulus trials together
-confdet0 <- rbind(confdet0_0,confdet0_1)
+confdet0 <- rbind(confdet0_1,confdet0_0)
 
 #get the cumulative value 
 confdet0[,'prob0']=cumsum(confdet0[,'prob']) 
@@ -498,11 +498,11 @@ confdet1_1 <- confdet1 %>%
 confdet1_1
 
 #order no response with descending confidence rating and yes response with ascending confidence rating
-confdet1_1 <- confdet1_1[order(confdet1_1$confidence),]
-confdet1_0 <- confdet1_0[order(-confdet1_0$confidence),]
+confdet1_1 <- confdet1_1[order(-confdet1_1$confidence),]
+confdet1_0 <- confdet1_0[order(confdet1_0$confidence),]
 
 #rebind yes stimulus trials
-confdet1 <- rbind(confdet1_0,confdet1_1)
+confdet1 <- rbind(confdet1_1,confdet1_0)
 
 #get the cumulative value 
 confdet1[,'prob1']=cumsum(confdet1[,'prob']) 
@@ -551,10 +551,10 @@ confdis0_0 <- confdis0 %>%
   filter(response=="0")
 confdis0_0
 
-confdis0_1 <- confdis0_1[order(confdis0_1$confidence),]
-confdis0_0 <- confdis0_0[order(-confdis0_0$confidence),]
+confdis0_1 <- confdis0_1[order(-confdis0_1$confidence),]
+confdis0_0 <- confdis0_0[order(confdis0_0$confidence),]
 
-confdis0 <- rbind(confdis0_0,confdis0_1)
+confdis0 <- rbind(confdis0_1,confdis0_0)
 confdis0[,'prob0']=cumsum(confdis0[,'prob']) 
 
 confdis1_0 <- confdis1 %>%
@@ -565,11 +565,11 @@ confdis1_1 <- confdis1 %>%
   filter(response=="1")
 confdis1_1
 
-confdis1_1 <- confdis1_1[order(confdis1_1$confidence),]
-confdis1_0 <- confdis1_0[order(-confdis1_0$confidence),]
+confdis1_1 <- confdis1_1[order(-confdis1_1$confidence),]
+confdis1_0 <- confdis1_0[order(confdis1_0$confidence),]
 
 
-confdis1 <- rbind(confdis1_0,confdis1_1)
+confdis1 <- rbind(confdis1_1,confdis1_0)
 
 confdis1[,'prob1']=cumsum(confdis1[,'prob']) 
 
@@ -605,10 +605,10 @@ conftil0_0 <- conftil0 %>%
   filter(response=="0")
 conftil0_0
 
-conftil0_1 <- conftil0_1[order(conftil0_1$confidence),]
-conftil0_0 <- conftil0_0[order(-conftil0_0$confidence),]
+conftil0_1 <- conftil0_1[order(-conftil0_1$confidence),]
+conftil0_0 <- conftil0_0[order(conftil0_0$confidence),]
 
-conftil0 <- rbind(conftil0_0,conftil0_1)
+conftil0 <- rbind(conftil0_1,conftil0_0)
 conftil0[,'prob0']=cumsum(conftil0[,'prob']) 
 
 conf_til_1 <- subset(conf_til, stimulus=="1", select=c(confidence, response, prob))
@@ -630,11 +630,11 @@ conftil1_1 <- conftil1 %>%
   filter(response=="1")
 conftil1_1
 
-conftil1_1 <- conftil1_1[order(conftil1_1$confidence),]
-conftil1_0 <- conftil1_0[order(-conftil1_0$confidence),]
+conftil1_1 <- conftil1_1[order(-conftil1_1$confidence),]
+conftil1_0 <- conftil1_0[order(conftil1_0$confidence),]
 
 
-conftil1 <- rbind(conftil1_0,conftil1_1)
+conftil1 <- rbind(conftil1_1,conftil1_0)
 
 conftil1[,'prob1']=cumsum(conftil1[,'prob']) 
 
