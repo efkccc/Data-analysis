@@ -25,51 +25,51 @@ getwd()
 Data <- read.csv("Data.csv")
 
 #creat a new file with only includedtrials 
-Behavioural_Valid <- Data %>% 
+Data_Valid <- Data %>% 
   #Filter out the excluded trials 
   filter(inclusion==1) %>%
   filter(! response=="NaN") %>%
   mutate(rt=response_time*1000) %>%
   mutate(log_rt=log(rt))
-Behavioural_Valid 
+Data_Valid 
 
 #get number of subjects
-Behavioural_subj <- Behavioural_Valid %>% 
+Behavioural_subj <- Data_Valid %>% 
   group_by(subj_id) %>%
   summarise(totaltrials=(count=n()))
 Behavioural_subj
 no_subj <- nrow(Behavioural_subj)
 
-Behavioural_Det <- Behavioural_Valid %>% 
+Data_Det <- Data_Valid %>% 
   #only include detection 
   filter(task=="Detection")
-Behavioural_Det
+Data_Det
 
-Behavioural_Dis <- Behavioural_Valid %>% 
+Data_Dis <- Data_Valid %>% 
   #only include detection 
   filter(task=="Discrimination")
-Behavioural_Dis
+Data_Dis
 
-Behavioural_Til<- Behavioural_Valid %>% 
+Data_Til<- Data_Valid %>% 
   #only include detection 
   filter(task=="Tilt")
-Behavioural_Til
+Data_Til
 
 #count the total no of trials for each task for each participant
-total_trials <- Behavioural_Valid %>%
+total_trials <- Data_Valid %>%
   group_by(subj_id, task) %>%
   summarise(totaltrials=(count=n()))
 total_trials
 
 #get the number of trials for each participants where they responded 1, p for positive
-p_trials <- Behavioural_Valid %>%
+p_trials <- Data_Valid %>%
   group_by(subj_id, task) %>%
   filter(response=="1") %>%
   summarise(p_trials=(count=n()))
 p_trials
 
 #count no. of correct trials for each task for each participant
-individual_trials <- Behavioural_Valid %>% 
+individual_trials <- Data_Valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id, task, accuracy) %>% 
   #count number of correct/incorrect/NAH trials 
@@ -92,7 +92,7 @@ individual_accuracy
 ```{r, echo=FALSE, message=FALSE}
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 data <- individual_accuracy
-ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs(title="Fig.1 Mean accuracy", y="mean accuracy")+ theme_classic() +
+ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs(title="Fig.1 Mean accuracy across three tasks", y="mean accuracy")+ theme_classic() +
    geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 
 ```
@@ -120,7 +120,7 @@ F1 <- summary(aov.Mean_accuracy)[[1]][["F value"]][[1]]
 #############################
 
 #combine with the ptrials data frame
-trials <- Behavioural_Valid %>% 
+trials <- Data_Valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id, task, accuracy, response) %>% 
   #count number of correct/incorrect/NAH trials 
@@ -199,7 +199,7 @@ p2 <- summary(aov.d)[[1]][["Pr(>F)"]][[1]]
 F2<- summary(aov.d)[[1]][["F value"]][[1]]
 
 #response bias 
-response <- Behavioural_Valid %>% 
+response <- Data_Valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id,task, response) %>% 
   #count number of correct/incorrect/NAH trials 
@@ -245,7 +245,7 @@ t.test(tilt, mu = 0.5) # Ho: mu = 0.5
 #############################
 #calculating rt
 #############################
-rt <- Behavioural_Valid %>%
+rt <- Data_Valid %>%
   group_by(subj_id, task, response, accuracy) %>%
   summarise(median(rt)) %>%
   rename("median_rt"="median(rt)")
@@ -279,20 +279,15 @@ qt3_correct <- quantile(correct_trials$median_rt, c(.75))
 qt1_incorrect <- quantile(incorrect_trials$median_rt, c(.25)) 
 qt3_incorrect <- quantile(incorrect_trials$median_rt, c(.75))
 
-tdet <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE, data=Behavioural_Det)$statistic
-p.det <- t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE, data=Behavioural_Det)$p.value
-tdis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Behavioural_Dis)$statistic
-p.dis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Behavioural_Dis)$p.value
-ttil <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Behavioural_Til)$statistic
-p.til <-t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE,data=Behavioural_Til)$p.value
+#get t test results detection, discrimination and tilt 
+tdet <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE, data=Data_Det)$statistic
+p.det <- t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE, data=Data_Det)$p.value
 
-vertical <- Behavioural_Til %>%
-  filter(response=="0")
-vertical
+tdis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Data_Dis)$statistic
+p.dis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Data_Dis)$p.value
 
-tilted <- Behavioural_Til %>%
-  filter(response=="1")
-tilted
+ttil <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Data_Til)$statistic
+p.til <-t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE,data=Data_Til)$p.value
 
 ```
 ### Mean performance for each task 
@@ -304,7 +299,7 @@ Response time was faster for correct response (1st quartile= `r format(round(pri
 
 ```{r include=FALSE}
 #mean confidence frequency 
-confidence_distribution <- Behavioural_Valid %>%
+confidence_distribution <- Data_Valid %>%
   group_by(task,confidence,response) %>%
   summarise(no_trials=(count=n())) %>%
   mutate(frequency = no_trials / no_subj)
@@ -373,15 +368,15 @@ confidence_til
 ```
 
 ```{r include=FALSE}
-det <- Behavioural_Valid %>%
+det <- Data_Valid %>%
   filter(task=="Detection") 
 det
 
-dis <- Behavioural_Valid %>%
+dis <- Data_Valid %>%
   filter(task=="Discrimination") 
 dis
 
-til <- Behavioural_Valid %>%
+til <- Data_Valid %>%
   filter(task=="Tilt") 
 til
 
@@ -412,25 +407,25 @@ Within detection, a significant difference in mean confidence was observed betwe
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
 #Type 1 ROC preparation
 #get the total number of trials for each type of stimuli
-sti <- Behavioural_Valid %>%
+sti <- Data_Valid %>%
   group_by(subj_id, task, stimulus) %>%
   summarise(total_sti_trials=(count=n())) 
 sti
 
 #get the total number of trials for correct and incoccrect trials
-acc <- Behavioural_Valid %>%
+acc <- Data_Valid %>%
   group_by(subj_id, task, accuracy, response) %>%
   summarise(total_acc_trials=(count=n())) 
 acc
 
-conf_prob_acc <- Behavioural_Valid %>%
+conf_prob_acc <- Data_Valid %>%
   group_by(subj_id, task, stimulus, response, accuracy, confidence) %>%
   summarise(no_trials=(count=n())) %>%
   inner_join(acc, by = c ("subj_id","task", "response","accuracy")) %>%
   mutate(prob_acc= no_trials/total_acc_trials)
 conf_prob_acc
 
-conf_prob <- Behavioural_Valid %>%
+conf_prob <- Data_Valid %>%
   group_by(subj_id, task, stimulus, response, accuracy, confidence) %>%
   summarise(no_trials=(count=n())) %>%
   inner_join(sti, by = c ("subj_id","task", "stimulus")) %>%
@@ -751,7 +746,8 @@ confdet_acc <- inner_join(confdet_incorrect, confdet_correct, by=c("confidence",
 
 #add the row for zero point for the ROC plot
 confdet_acc <- ungroup(confdet_acc)
-confdet_acc <- confdet_acc %>% add_row(confidence=7, response="0",prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0) %>% add_row(confidence=7, response="1",prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0)
+
+confdet_acc <- confdet_acc %>% add_row(confidence=7, response=0, prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0) %>% add_row(confidence=7, response=1, prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0)
 
 #change response code
 confdet_acc$response[confdet_acc$response=="0"] <- "No"
@@ -812,7 +808,7 @@ confdis_correct1[,'prob1']=cumsum(confdis_correct1[,'prob'])
 confdis_correct <- rbind(confdis_correct0, confdis_correct1)
 confdis_acc <- inner_join(confdis_incorrect, confdis_correct, by=c("confidence", "response"))
 confdis_acc <- ungroup(confdis_acc)
-confdis_acc <- confdis_acc %>% add_row(confidence=7, response="0",prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0) %>% add_row(confidence=7, response="1",prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0)
+confdis_acc <- confdis_acc %>% add_row(confidence=7, response=0, prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0) %>% add_row(confidence=7, response=1, prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0)
 confdis_acc$response[confdis_acc$response=="0"] <- "Anticlockwise"
 confdis_acc$response[confdis_acc$response=="1"] <- "Clockwise"
 
@@ -867,7 +863,7 @@ conftil_correct1[,'prob1']=cumsum(conftil_correct1[,'prob'])
 conftil_correct <- rbind(conftil_correct0, conftil_correct1)
 conftil_acc <- inner_join(conftil_incorrect, conftil_correct, by=c("confidence", "response"))
 conftil_acc <- ungroup(conftil_acc)
-conftil_acc <- conftil_acc %>% add_row(confidence=7, response="0",prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0) %>% add_row(confidence=7, response="1",prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0)
+conftil_acc <- conftil_acc %>% add_row(confidence=7, response=0 ,prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0) %>% add_row(confidence=7, response=1 ,prob_acc.x=0, prob.x=0, prob0=0, prob_acc.y=0, prob.y=0, prob1=0)
 
 conftil_acc$response[conftil_acc$response=="0"] <- "Vertical"
 conftil_acc$response[conftil_acc$response=="1"] <- "Tilted"
@@ -910,6 +906,112 @@ roc2_til <- ggplot(data=conftil_acc, aes(x=prob0, y=prob1)) +
                  legend.key = element_blank(),
         plot.title = (element_text(color = "black", size = 12, face = "italic")))
 roc2_til
+```
+&nbsp;
+
+&nbsp;
+
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
+# Neural data preparation detection
+BOLD_det<- subset(Data_Det, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
+BOLD_det <- BOLD_det[order(BOLD_det[,1,2]),]
+BOLD_det$response[BOLD_det$response=="0"] <- "No"
+BOLD_det$response[BOLD_det$response=="1"] <- "Yes"
+
+BOLD_det <- BOLD_det  %>%
+  filter(! BOLD_rTPJ=="NaN") %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(rTPJ=BOLD_rTPJ/no_subj) %>%
+  mutate(pMFC=BOLD_pMFC/no_subj) %>%
+  mutate(FPm=BOLD_FPm/no_subj) %>%
+  mutate(FPl=BOLD_FPl/no_subj) %>%
+  mutate(preSMA=BOLD_preSMA/no_subj) %>%
+  mutate(vmPFC=BOLD_vmPFC/no_subj) 
+BOLD_det
+
+# Neural data preparation discrimination
+BOLD_dis<- subset(Data_Dis, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
+BOLD_dis <- BOLD_dis[order(BOLD_dis[,1,2]),]
+BOLD_dis$response[BOLD_dis$response=="0"] <- "Anticlockwise"
+BOLD_dis$response[BOLD_dis$response=="1"] <- "Clockwise"
+
+BOLD_dis <- BOLD_dis  %>%
+  filter(! BOLD_rTPJ=="NaN") %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(rTPJ=BOLD_rTPJ/no_subj) %>%
+  mutate(pMFC=BOLD_pMFC/no_subj) %>%
+  mutate(FPm=BOLD_FPm/no_subj) %>%
+  mutate(FPl=BOLD_FPl/no_subj) %>%
+  mutate(preSMA=BOLD_preSMA/no_subj) %>%
+  mutate(vmPFC=BOLD_vmPFC/no_subj) 
+BOLD_dis
+
+# Neural data preparation tilt
+BOLD_til<- subset(Data_Til, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
+BOLD_til <- BOLD_til[order(BOLD_til[,1,2]),]
+BOLD_til$response[BOLD_til$response=="0"] <- "Vertical"
+BOLD_til$response[BOLD_til$response=="1"] <- "Tilted"
+
+BOLD_til <- BOLD_til  %>%
+  filter(! BOLD_rTPJ=="NaN") %>%
+  group_by(confidence, response) %>%
+  summarise_each(funs(sum)) %>%
+  mutate(rTPJ=BOLD_rTPJ/no_subj) %>%
+  mutate(pMFC=BOLD_pMFC/no_subj) %>%
+  mutate(FPm=BOLD_FPm/no_subj) %>%
+  mutate(FPl=BOLD_FPl/no_subj) %>%
+  mutate(preSMA=BOLD_preSMA/no_subj) %>%
+  mutate(vmPFC=BOLD_vmPFC/no_subj) 
+BOLD_til
+
+#################################### 
+# Plotting rTPJ detection
+#################################### 
+rTPJ_det <- ggplot(data=BOLD_det, aes(x=confidence, y=rTPJ)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  scale_color_manual(values=c("#e41a1c", "#377eb8")) +
+  labs(title="rTPJ detection", x= "confidence", y="mean activation", color="Response") +
+  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
+  theme(legend.position=c(0.8, 0.15),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank(),
+        legend.title = (element_text(size = 8)),
+  legend.text = (element_text(size = 8)),
+        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+rTPJ_det
+
+rTPJ_dis <- ggplot(data=BOLD_dis, aes(x=confidence, y=rTPJ)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  scale_color_manual(values=c("#984ea3", "#4daf4a")) +
+  labs(title="rTPJ discrimination", x= "confidence", y="mean activation", color="Response") +
+  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
+  theme(legend.position=c(0.85, 0.15),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank(),
+        legend.title = (element_text(size = 8)),
+  legend.text = (element_text(size = 8)),
+        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+rTPJ_dis
+
+rTPJ_til <- ggplot(data=BOLD_til, aes(x=confidence, y=rTPJ)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  scale_color_manual(values=c("#ff7f00","#ffff33")) +
+  labs(title="rTPJ discrimination", x= "confidence", y="mean activation", color="Response") +
+  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
+  theme(legend.position=c(0.85, 0.15),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank(),
+        legend.title = (element_text(size = 8)),
+  legend.text = (element_text(size = 8)),
+        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+rTPJ_til
+
+
 ```
 &nbsp;
 
