@@ -753,6 +753,11 @@ confdet_acc <- confdet_acc %>% add_row(confidence=7, response=0, prob_acc.x=0, p
 confdet_acc$response[confdet_acc$response=="0"] <- "No"
 confdet_acc$response[confdet_acc$response=="1"] <- "Yes"
 
+auc <- t(sapply(split(confdet_acc, confdet_acc$response), function(x) {
+  data.frame(response=x$response[1], auc=auc(x$prob0, x$prob1, type='spline'))
+}))
+AUC <- merge(confdet_acc, auc)
+
 ####################
 #  Discrimination  #
 ####################
@@ -868,6 +873,7 @@ conftil_acc <- conftil_acc %>% add_row(confidence=7, response=0 ,prob_acc.x=0, p
 conftil_acc$response[conftil_acc$response=="0"] <- "Vertical"
 conftil_acc$response[conftil_acc$response=="1"] <- "Tilted"
 
+
 #################################### 
 # Plotting type 2 ROC
 ####################################
@@ -882,6 +888,9 @@ roc2_det <- ggplot(data=confdet_acc, aes(x=prob0, y=prob1)) +
                  legend.key = element_blank(),
         plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
 roc2_det
+
+
+auc1 <- auc(confdet_acc$prob0, confdet_acc$prob1, from=0, rule=2, yleft=0)
 
 roc2_dis <- ggplot(data=confdis_acc, aes(x=prob0, y=prob1)) +
   geom_line(aes(colour = factor(response))) +
@@ -911,14 +920,19 @@ roc2_til
 
 &nbsp;
 
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve, is significantly higher for Yes (`r print(auc[[4]])`) than No (`r print(auc[[3]])`) response.
+
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
-# Neural data preparation detection
+########################################
+# Neural data preparation detection v1
+########################################
+Data_Det$response[Data_Det$response=="0"] <- "No"
+Data_Det$response[Data_Det$response=="1"] <- "Yes"
+
 BOLD_det<- subset(Data_Det, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
 BOLD_det <- BOLD_det[order(BOLD_det[,1,2]),]
-BOLD_det$response[BOLD_det$response=="0"] <- "No"
-BOLD_det$response[BOLD_det$response=="1"] <- "Yes"
 
-BOLD_det <- BOLD_det  %>%
+BOLD_det1 <- BOLD_det  %>%
   filter(! BOLD_rTPJ=="NaN") %>%
   group_by(confidence, response) %>%
   summarise_each(funs(sum)) %>%
@@ -928,13 +942,16 @@ BOLD_det <- BOLD_det  %>%
   mutate(FPl=BOLD_FPl/no_subj) %>%
   mutate(preSMA=BOLD_preSMA/no_subj) %>%
   mutate(vmPFC=BOLD_vmPFC/no_subj) 
-BOLD_det
+BOLD_det1
 
-# Neural data preparation discrimination
+##############################################  
+# Neural data preparation discrimination v1
+##############################################
+Data_Dis$response[Data_Dis$response=="0"] <- "Anticlockwise"
+Data_Dis$response[Data_Dis$response=="1"] <- "Clockwise"
+
 BOLD_dis<- subset(Data_Dis, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
 BOLD_dis <- BOLD_dis[order(BOLD_dis[,1,2]),]
-BOLD_dis$response[BOLD_dis$response=="0"] <- "Anticlockwise"
-BOLD_dis$response[BOLD_dis$response=="1"] <- "Clockwise"
 
 BOLD_dis <- BOLD_dis  %>%
   filter(! BOLD_rTPJ=="NaN") %>%
@@ -948,11 +965,14 @@ BOLD_dis <- BOLD_dis  %>%
   mutate(vmPFC=BOLD_vmPFC/no_subj) 
 BOLD_dis
 
-# Neural data preparation tilt
+#################################### 
+# Neural data preparation tilt v1
+####################################
+Data_Til$response[Data_Til$response=="0"] <- "Vertical"
+Data_Til$response[Data_Til$response=="1"] <- "Tilted"
+
 BOLD_til<- subset(Data_Til, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
 BOLD_til <- BOLD_til[order(BOLD_til[,1,2]),]
-BOLD_til$response[BOLD_til$response=="0"] <- "Vertical"
-BOLD_til$response[BOLD_til$response=="1"] <- "Tilted"
 
 BOLD_til <- BOLD_til  %>%
   filter(! BOLD_rTPJ=="NaN") %>%
@@ -969,7 +989,7 @@ BOLD_til
 #################################### 
 # Plotting rTPJ detection
 #################################### 
-rTPJ_det <- ggplot(data=BOLD_det, aes(x=confidence, y=rTPJ)) +
+rTPJ_det <- ggplot(data=BOLD_det1, aes(x=confidence, y=rTPJ)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
   scale_color_manual(values=c("#e41a1c", "#377eb8")) +
@@ -1001,7 +1021,7 @@ rTPJ_til <- ggplot(data=BOLD_til, aes(x=confidence, y=rTPJ)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
   scale_color_manual(values=c("#ff7f00","#ffff33")) +
-  labs(title="rTPJ discrimination", x= "confidence", y="mean activation", color="Response") +
+  labs(title="rTPJ tilt recognition", x= "confidence", y="mean activation", color="Response") +
   theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
   theme(legend.position=c(0.85, 0.15),  
                  legend.background = element_blank(),
@@ -1011,6 +1031,85 @@ rTPJ_til <- ggplot(data=BOLD_til, aes(x=confidence, y=rTPJ)) +
         plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
 rTPJ_til
 
+```
+&nbsp;
+
+&nbsp;
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
+########################################
+# Neural data preparation detection v2
+########################################
+Data_Det <- Data_Det %>%
+  filter(! BOLD_rTPJ=="NaN")
+Data_Det
+
+BOLD_det2 <- aggregate(Data_Det[, 16:21], list(Data_Det$confidence, Data_Det$response ), mean)
+BOLD_det2 <- rename(BOLD_det2,c('confidence'='Group.1','response'='Group.2'))
+
+#############################################  
+# Neural data preparation discrimination v2
+############################################# 
+Data_Dis <- Data_Dis %>%
+  filter(! BOLD_rTPJ=="NaN")
+Data_Dis
+
+BOLD_dis2 <- aggregate(Data_Dis[, 16:21], list(Data_Dis$confidence, Data_Dis$response ), mean)
+BOLD_dis2 <- rename(BOLD_dis2,c('confidence'='Group.1','response'='Group.2'))
+
+#################################### 
+# Neural data preparation tilt v2
+####################################
+Data_Til <- Data_Til %>%
+  filter(! BOLD_rTPJ=="NaN")
+Data_Til
+
+BOLD_til2 <- aggregate(Data_Til[, 16:21], list(Data_Til$confidence, Data_Til$response ), mean)
+BOLD_til2 <- rename(BOLD_til2,c('confidence'='Group.1','response'='Group.2'))
+
+#################################### 
+# Plotting rTPJ detection
+#################################### 
+rTPJ_det <- ggplot(data=BOLD_det2, aes(x=confidence, y=BOLD_rTPJ)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  scale_color_manual(values=c("#e41a1c", "#377eb8")) +
+  labs(title="rTPJ detection 2", x= "confidence", y="mean activation", color="Response") +
+  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-1, 1), breaks=number_ticks(6))+
+  theme(legend.position=c(0.8, 0.15),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank(),
+        legend.title = (element_text(size = 8)),
+  legend.text = (element_text(size = 8)),
+        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+rTPJ_det
+
+rTPJ_dis <- ggplot(data=BOLD_dis2, aes(x=confidence, y=BOLD_rTPJ)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  scale_color_manual(values=c("#984ea3", "#4daf4a")) +
+  labs(title="rTPJ discrimination 2", x= "confidence", y="mean activation", color="Response") +
+  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-1, 1), breaks=number_ticks(6))+
+  theme(legend.position=c(0.85, 0.15),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank(),
+        legend.title = (element_text(size = 8)),
+  legend.text = (element_text(size = 8)),
+        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+rTPJ_dis
+
+rTPJ_til <- ggplot(data=BOLD_til2, aes(x=confidence, y=BOLD_rTPJ)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  scale_color_manual(values=c("#ff7f00","#ffff33")) +
+  labs(title="rTPJ tilt recognition 2", x= "confidence", y="mean activation", color="Response") +
+  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-1, 1), breaks=number_ticks(6))+
+  theme(legend.position=c(0.85, 0.15),  
+                 legend.background = element_blank(),
+                 legend.key = element_blank(),
+        legend.title = (element_text(size = 8)),
+  legend.text = (element_text(size = 8)),
+        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+rTPJ_til
 
 ```
 &nbsp;
