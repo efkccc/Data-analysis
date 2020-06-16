@@ -6,7 +6,7 @@ output: pdf_document
 bibliography: references.bib
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE} 
 knitr::opts_chunk$set(echo = FALSE)
 library(ggplot2)
 library(tinytex)
@@ -16,8 +16,15 @@ library(ggplot2)
 library(readr)
 library(tidyr)
 library(RColorBrewer)
-library(pROC)
+library(papaja)
+library(MOTE)
+library(MESS)
 getwd()
+myround_p <- function(x, digits = 3){
+  if (x < 10^-digits) return(paste('<', 10^-digits))
+  paste('=', myround(x, digits))
+}
+
 ```
 
 ```{r include=FALSE}
@@ -111,6 +118,7 @@ names(getmean) <-data1$task
 
 #ANOVA comparing task performance 
 aov.Mean_accuracy <- aov(correct~task,data=individual_accuracy)
+
 summary(aov.Mean_accuracy)
 p1 <- summary(aov.Mean_accuracy)[[1]][["Pr(>F)"]][[1]]
 F1 <- summary(aov.Mean_accuracy)[[1]][["F value"]][[1]]
@@ -291,11 +299,11 @@ p.til <-t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE,d
 
 ```
 ### Mean performance for each task 
-Performan across the three tasks, detection (accuracy= `r format(round(unname(getmean['Detection']), 2), nsmall = 2)`, d'= `r format(round(print(d_det), 2), nsmall = 2)`),  discrimination (accuracy= `r format(round(unname(getmean['Discrimination']), 2), nsmall = 2)`, d'= `r format(round(print(d_dis), 2), nsmall = 2)`) and tilt recognition (accuracy = `r format(round(unname(getmean['Tilt']), 2), nsmall = 2)`, d'= `r format(round(print(d_til), 2), nsmall = 2)`) was similar. An one-way ANOVA failed to detect a significant difference between the accuracy of these threee tasks (F= `r format(round(F1, 2), nsmall=2)`, p= `r format(round(p1, 2), nsmall=2)`, ) and d' (F= `r format(round(F2, 2), nsmall=2)`, p= `r format(round(p2, 2), nsmall=2)`).
+Performan across the three tasks, detection (accuracy= `r apa(unname(getmean['Detection']), 2, T)`, d'= `r apa(d_det, 2, T)`),  discrimination (accuracy= `r apa(unname(getmean['Discrimination']), 2, T)`, d'= `r apa(d_dis, 2, T)`) and tilt recognition (accuracy = `r apa(unname(getmean['Tilt']), 2, T)`, d'= `r apa(d_til, 2, T)`) was similar. An one-way ANOVA failed to detect a significant difference between the accuracy of these threee tasks (F= `r apa(F1, 2, T)`, p= `r apa(p1, 2, T)`, ) and d' (F= `r apa(F2, 2, T)`, p= `r apa(p2, 2, T)`).
 
-The probability of responding YES in detection was `r format(round(print(det_bias), 2), nsmall = 2)` (± `r format(round(print(sd_bias1), 2), nsmall = 2)`), and was significantly different from 0.5 (ADD T TEST RESULTS). The probability of responding CLOCKWISE was `r format(round(print(dis_bias), 2), nsmall = 2)` (± `r format(round(print(sd_bias2), 2), nsmall = 2)`) and was not significantly different from 0.5. For the tilt recognition task, the probability of responding TILTED was (`r format(round(print(til_bias), 2), nsmall = 2)` ± `r format(round(print(sd_bias3), 2), nsmall = 2)`).
+The probability of responding YES in detection was `r format(round(print(det_bias), 2), nsmall = 2)` (± `r apa(sd_bias1, 2, T)`), and was significantly different from 0.5 (ADD T TEST RESULTS). The probability of responding CLOCKWISE was `r apa(dis_bias, 2, T)` (± `r apa(sd_bias2, 2, T)`) and was not significantly different from 0.5. For the tilt recognition task, the probability of responding TILTED was (`r apa(til_bias, 2, T)` ± `r apa(sd_bias3, 2, T)`).
 
-Response time was faster for correct response (1st quartile= `r format(round(print(qt1_correct), 2), nsmall = 2)`, median= `r format(round(unname(getmedian['correct']), 2), nsmall = 2)`, 3rd quartile= `r format(round(print(qt3_correct), 2), nsmall = 2)` milliseconds) than incorrect responses (1st quartile= `r format(round(print(qt1_incorrect), 2), nsmall = 2)`, median= `r format(round(unname(getmedian['incorrect']), 2), nsmall = 2)`, 3rd quartile= `r format(round(print(qt3_incorrect), 2), nsmall = 2)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (YES vs. NO, t=`r format(round(print(tdet), 2), nsmall = 2)` p=`r format(round(print(p.det), 2), nsmall = 2)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, t=`r format(round(print(tdis), 2), nsmall = 2)`, p= `r format(round(print(p.dis), 2), nsmall = 2)`) and tilt recognition (VERTICAL vs. TILTED, t=`r format(round(print(ttil), 2), nsmall = 2)`, p= `r format(round(print(p.til), 2), nsmall = 2)`). 
+Response time was faster for correct response (1st quartile= `r apa(qt1_correct, 2, T)`, median= `r apa(unname(getmedian['correct']), 2, T)`, 3rd quartile= `r apa(qt3_correct, 2, T)` milliseconds) than incorrect responses (1st quartile= `r apa(qt1_incorrect, 2, T)`, median= `r apa(unname(getmedian['incorrect']), 2, T)`, 3rd quartile= `r apa(qt3_incorrect, 2, T)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (YES vs. NO, t=`r apa(tdet, 2, T)` p=`r apa(p.det, 2, T)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, t=`r apa(tdis, 2, T)`, p= `r apa(p.dis, 2, T)`) and tilt recognition (VERTICAL vs. TILTED, t=`r apa(ttil, 2, T)`, p= `r apa(p.til, 2, T)`) on response time. 
 
 ```{r include=FALSE}
 #mean confidence frequency 
@@ -333,7 +341,7 @@ confidence_tilt$response[confidence_tilt$response=="1"] <-"Tilted"
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 
 #SE calculation  (the standard deviation divided by the square root of the sample size)
-se <- function(x) sqrt(var(x)/length(x))
+#se <- function(x) sqrt(var(x)/length(x))
 pd <- position_dodge(0.5) # move them .05 to the left and right
 ci <- se(confidence_detection$frequency)
 ```
@@ -385,7 +393,7 @@ t1 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = det)$
 p3 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = til)$p.value
 t3 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = til)$statistic
 ```
-Within detection, a significant difference in mean confidence was observed between YES (target present) and NO (target absent) responses (see Fig.4 above), such that participants are more confident in their YES responses (t=`r format(round(print(t1), 2), nsmall = 2)`, p = `r format(round(print(p1), 2), nsmall = 2)`) and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (t=`r format(round(print(t3), 2), nsmall = 2)`, p = `r format(round(print(p3), 2), nsmall = 2)`).
+Within detection, a significant difference in mean confidence was observed between YES (target present) and NO (target absent) responses (see Fig.4 above) (t=`r apa(t1, 2, T)`, p = `r myround_p (apa(p1, 2, T))`) , such that participants are more confident in their YES responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (t=`r apa(t3, 2, T)`, p = `r apa(p3, 2, T)`).
 
 &nbsp;
 
@@ -756,6 +764,8 @@ confdet_acc$response[confdet_acc$response=="1"] <- "Yes"
 auc <- t(sapply(split(confdet_acc, confdet_acc$response), function(x) {
   data.frame(response=x$response[1], auc=auc(x$prob0, x$prob1, type='spline'))
 }))
+unlist(auc)
+
 AUC <- merge(confdet_acc, auc)
 
 ####################
@@ -890,8 +900,6 @@ roc2_det <- ggplot(data=confdet_acc, aes(x=prob0, y=prob1)) +
 roc2_det
 
 
-auc1 <- auc(confdet_acc$prob0, confdet_acc$prob1, from=0, rule=2, yleft=0)
-
 roc2_dis <- ggplot(data=confdis_acc, aes(x=prob0, y=prob1)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 4) + 
@@ -920,121 +928,10 @@ roc2_til
 
 &nbsp;
 
-Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve, is significantly higher for Yes (`r print(auc[[4]])`) than No (`r print(auc[[3]])`) response.
-
-```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
-########################################
-# Neural data preparation detection v1
-########################################
-Data_Det$response[Data_Det$response=="0"] <- "No"
-Data_Det$response[Data_Det$response=="1"] <- "Yes"
-
-BOLD_det<- subset(Data_Det, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
-BOLD_det <- BOLD_det[order(BOLD_det[,1,2]),]
-
-BOLD_det1 <- BOLD_det  %>%
-  filter(! BOLD_rTPJ=="NaN") %>%
-  group_by(confidence, response) %>%
-  summarise_each(funs(sum)) %>%
-  mutate(rTPJ=BOLD_rTPJ/no_subj) %>%
-  mutate(pMFC=BOLD_pMFC/no_subj) %>%
-  mutate(FPm=BOLD_FPm/no_subj) %>%
-  mutate(FPl=BOLD_FPl/no_subj) %>%
-  mutate(preSMA=BOLD_preSMA/no_subj) %>%
-  mutate(vmPFC=BOLD_vmPFC/no_subj) 
-BOLD_det1
-
-##############################################  
-# Neural data preparation discrimination v1
-##############################################
-Data_Dis$response[Data_Dis$response=="0"] <- "Anticlockwise"
-Data_Dis$response[Data_Dis$response=="1"] <- "Clockwise"
-
-BOLD_dis<- subset(Data_Dis, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
-BOLD_dis <- BOLD_dis[order(BOLD_dis[,1,2]),]
-
-BOLD_dis <- BOLD_dis  %>%
-  filter(! BOLD_rTPJ=="NaN") %>%
-  group_by(confidence, response) %>%
-  summarise_each(funs(sum)) %>%
-  mutate(rTPJ=BOLD_rTPJ/no_subj) %>%
-  mutate(pMFC=BOLD_pMFC/no_subj) %>%
-  mutate(FPm=BOLD_FPm/no_subj) %>%
-  mutate(FPl=BOLD_FPl/no_subj) %>%
-  mutate(preSMA=BOLD_preSMA/no_subj) %>%
-  mutate(vmPFC=BOLD_vmPFC/no_subj) 
-BOLD_dis
-
-#################################### 
-# Neural data preparation tilt v1
-####################################
-Data_Til$response[Data_Til$response=="0"] <- "Vertical"
-Data_Til$response[Data_Til$response=="1"] <- "Tilted"
-
-BOLD_til<- subset(Data_Til, select=c(confidence, response, BOLD_rTPJ, BOLD_pMFC, BOLD_FPm, BOLD_FPl, BOLD_preSMA, BOLD_vmPFC))
-BOLD_til <- BOLD_til[order(BOLD_til[,1,2]),]
-
-BOLD_til <- BOLD_til  %>%
-  filter(! BOLD_rTPJ=="NaN") %>%
-  group_by(confidence, response) %>%
-  summarise_each(funs(sum)) %>%
-  mutate(rTPJ=BOLD_rTPJ/no_subj) %>%
-  mutate(pMFC=BOLD_pMFC/no_subj) %>%
-  mutate(FPm=BOLD_FPm/no_subj) %>%
-  mutate(FPl=BOLD_FPl/no_subj) %>%
-  mutate(preSMA=BOLD_preSMA/no_subj) %>%
-  mutate(vmPFC=BOLD_vmPFC/no_subj) 
-BOLD_til
-
-#################################### 
-# Plotting rTPJ detection
-#################################### 
-rTPJ_det <- ggplot(data=BOLD_det1, aes(x=confidence, y=rTPJ)) +
-  geom_line(aes(colour = factor(response))) +
-  geom_point(aes(color = factor(response)), size = 3) + 
-  scale_color_manual(values=c("#e41a1c", "#377eb8")) +
-  labs(title="rTPJ detection", x= "confidence", y="mean activation", color="Response") +
-  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
-  theme(legend.position=c(0.8, 0.15),  
-                 legend.background = element_blank(),
-                 legend.key = element_blank(),
-        legend.title = (element_text(size = 8)),
-  legend.text = (element_text(size = 8)),
-        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
-rTPJ_det
-
-rTPJ_dis <- ggplot(data=BOLD_dis, aes(x=confidence, y=rTPJ)) +
-  geom_line(aes(colour = factor(response))) +
-  geom_point(aes(color = factor(response)), size = 3) + 
-  scale_color_manual(values=c("#984ea3", "#4daf4a")) +
-  labs(title="rTPJ discrimination", x= "confidence", y="mean activation", color="Response") +
-  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
-  theme(legend.position=c(0.85, 0.15),  
-                 legend.background = element_blank(),
-                 legend.key = element_blank(),
-        legend.title = (element_text(size = 8)),
-  legend.text = (element_text(size = 8)),
-        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
-rTPJ_dis
-
-rTPJ_til <- ggplot(data=BOLD_til, aes(x=confidence, y=rTPJ)) +
-  geom_line(aes(colour = factor(response))) +
-  geom_point(aes(color = factor(response)), size = 3) + 
-  scale_color_manual(values=c("#ff7f00","#ffff33")) +
-  labs(title="rTPJ tilt recognition", x= "confidence", y="mean activation", color="Response") +
-  theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-3, 3), breaks=number_ticks(6))+
-  theme(legend.position=c(0.85, 0.15),  
-                 legend.background = element_blank(),
-                 legend.key = element_blank(),
-        legend.title = (element_text(size = 8)),
-  legend.text = (element_text(size = 8)),
-        plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
-rTPJ_til
-
-```
-&nbsp;
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve, is significantly higher for Yes (`r auc[3]`) than No (`r auc[4]`) response. 
 
 &nbsp;
+
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
 ########################################
 # Neural data preparation detection v2
@@ -1043,8 +940,10 @@ Data_Det <- Data_Det %>%
   filter(! BOLD_rTPJ=="NaN")
 Data_Det
 
-BOLD_det2 <- aggregate(Data_Det[, 16:21], list(Data_Det$confidence, Data_Det$response ), mean)
-BOLD_det2 <- rename(BOLD_det2,c('confidence'='Group.1','response'='Group.2'))
+BOLD_det_mean <- aggregate(Data_Det[, 16:21], list(Data_Det$confidence, Data_Det$response ), mean)
+BOLD_det_se <- aggregate(Data_Det[, 16:21], list(Data_Det$confidence, Data_Det$response ), se)
+
+BOLD_det <- rename(BOLD_det_mean,c('confidence'='Group.1', 'response'='Group.2'))
 
 #############################################  
 # Neural data preparation discrimination v2
@@ -1069,7 +968,7 @@ BOLD_til2 <- rename(BOLD_til2,c('confidence'='Group.1','response'='Group.2'))
 #################################### 
 # Plotting rTPJ detection
 #################################### 
-rTPJ_det <- ggplot(data=BOLD_det2, aes(x=confidence, y=BOLD_rTPJ)) +
+rTPJ_det <- ggplot(data=BOLD_det_mean, aes(x=confidence, y=BOLD_rTPJ)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
   scale_color_manual(values=c("#e41a1c", "#377eb8")) +
