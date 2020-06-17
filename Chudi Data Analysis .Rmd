@@ -21,9 +21,11 @@ library(RColorBrewer)
 library(papaja)
 library(MOTE)
 library(MESS)
+library(lmerTest) # for mixed effects model fit
+library(broom.mixed) # to tidy model fit coefficients
 getwd()
 
-# MM: I've commented this function because papaja has its own function to present p-values!
+# MM: This function is not needed, papaja handles this :)
 myround_p <- function(x, digits = 3){
   if (x < 10^-digits) return(paste('<', 10^-digits))
   paste('=', myround(x, digits))
@@ -115,6 +117,8 @@ task_accuracy <- individual_accuracy %>%
 #ANOVA comparing task performance 
 aov.Mean_accuracy <- aov(correct~task,data=individual_accuracy)
 
+## MM: you can then use apa_print(aov.Mean_accuracy) to present stats.
+
 #############################
 #calculating HIT and FA rate
 #############################
@@ -126,12 +130,14 @@ trials <- Data_Valid %>%
   #count number of correct/incorrect/NAH trials 
   summarize(no_trials=(count = n())) %>%
   inner_join(p_trials, by = c ("subj_id","task"))
-trials
+
+# MM: no need to assert variable names after defining them
+# trials
 
 hit_detect <- individual_trials %>% 
   filter(task=="Detection", accuracy=="1") %>%
   summarize(no_trials=(count = n()))
-hit_detect
+# hit_detect
 
 #calculating HIT FA rate for detection
 hit_det <- trials %>% 
@@ -139,6 +145,10 @@ hit_det <- trials %>%
   mutate(hit_rate = no_trials / p_trials) %>%
   mutate(z_hit= qnorm(hit_rate))
 hit_det
+
+# MM: You have three different variables names hit_detect, det_hit, and hit_det :)
+# this is confusing and error-prone. We want to give our variables meaningful names 
+# that will be understandable by others, but more importantly - but our future selves :)
 det_hit <- mean(hit_det$hit_rate)
 
 fa_det <- trials %>% 
@@ -192,8 +202,19 @@ d_det <- mean(fa_det$dprime)
 d_dis <- mean(fa_dis$dprime)
 d_til <- mean(fa_til$dprime)
 
+# MM: I want to encourage you to use functions more where you write the same
+# script over and over again. Having code duplicates in your code is reallllly
+# error-prone. So whenever you find yourself having to write the same thing 
+# more than once (e.g. you extract d' for each task in a very similar way), 
+# write a function instead. I would encourage you to write a function 'get_d'
+# that takes a df as input and returns the d' for this table, and then groupby task 
+# and subject and use summarise with your new function.
+
+
 #ANOVA Calculation for d prime
 aov.d <- aov(dprime~task, data=d_prime)
+
+# MM: here also, no need to extract ps and fs, you can use apa_print() instead :)
 summary(aov.d)
 p2 <- summary(aov.d)[[1]][["Pr(>F)"]][[1]]
 F2<- summary(aov.d)[[1]][["F value"]][[1]]
@@ -215,10 +236,19 @@ det_resp <- response %>%
   filter(response=="1")
 det_resp
 
+# MM: Here's a really cool thing: instead of extracting mean and sd, 
+# you can use apa_print(t.test(...))$estimate instead!
+
 det_bias <- mean(det_resp$probability)
 sd_bias1 <- sd(det_resp$probability)
+
+# MM: what is this variable?
 detection<- (rnorm(no_subj, mean = det_bias, sd = sd_bias1))
+# MM: aren't you saving the t.test results to a variable?
 t.test(detection, mu = 0.5) # Ho: mu = 0.5
+
+# MM: same principle here. if you are writing the same code three times,
+# it's better to write a function instead :)
 
 #response bias for discrimination
 dis_resp <- response %>%
@@ -251,7 +281,7 @@ rt <- Data_Valid %>%
   rename("median_rt"="median(rt)")
 rt
 
-#calculating mean rt for correct and incorrect trials
+#calculating median rt for correct and incorrect trials
 rt_accuracy <- rt %>%
   group_by(accuracy) %>%
   summarise(median(median_rt)) %>%
@@ -274,12 +304,14 @@ incorrect_trials <- rt %>%
   filter(accuracy==0)
 incorrect_trials 
 
+# MM: why not use qt_correct <- quantile(correct_trials$median_rt, c(.25,.5,.75)) instead?
 qt1_correct <- quantile(correct_trials$median_rt, c(.25)) 
 qt3_correct <- quantile(correct_trials$median_rt, c(.75))
 qt1_incorrect <- quantile(incorrect_trials$median_rt, c(.25)) 
 qt3_incorrect <- quantile(incorrect_trials$median_rt, c(.75))
 
 #get t test results detection, discrimination and tilt 
+# MM: I would use papaja instead here.
 tdet <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE, data=Data_Det)$statistic
 p.det <- t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE, data=Data_Det)$p.value
 
@@ -301,6 +333,7 @@ Response time was faster for correct response (1st quartile= `r apa(qt1_correct,
 
 ```{r include=FALSE, cache=TRUE}
 #mean confidence frequency 
+# MM: instead of creating three different dfs, I kept everything in one df here:
 confidence_distribution <- Data_Valid %>%
   group_by(task,confidence,response) %>%
   summarise(no_trials=(count=n())) %>%
@@ -460,6 +493,11 @@ Within detection, a significant difference in mean confidence was observed betwe
 # 3.Type 1 ROC curves
 
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
+
+# MM: I think these were a useful exercise in the way to getting the beautiful type-2 ROC curves,
+# but not sure they are strictly necessary at this stage. I leave it to you to decide. If you do keep them, 
+# (as you can probably guess :)), I would write a function instead of writing the same code three times.
+
 #Type 1 ROC preparation
 #get the total number of trials for each type of stimuli
 sti <- Data_Valid %>%
@@ -727,6 +765,9 @@ roc1_til
 
 # 4.Type 2 ROC curves
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5, cache=TRUE}
+
+# MM: Same here, better to write a function :)
+
 #Type 2 ROC preparation
 ###############
 #  Detection  #
@@ -737,6 +778,7 @@ conf_det0 <- conf_det0[order(conf_det0[,1,2]),]
 sex1 <- se(conf_det0$prob_acc)
 
 
+# MM: in the following lines, why use many dfs instead of piping the commands?
 #get incorrect trials with 1 response
 confdet_incorrect1 <- conf_det0 %>%
   group_by(confidence, response) %>%
@@ -1012,12 +1054,17 @@ Data_Det$response[Data_Det$response=="1"] <- "Yes"
 #get the mean activation at each ROI for each participants at each confidence level for each response
 BOLD_det_suj <- aggregate(Data_Det[, 16:21], list(Data_Det$subj_id, Data_Det$confidence, Data_Det$response ), mean)
 #rename the colum names 
+
+
+#MM: what is the meaning of these column names (Group.1 etc?)
 BOLD_det_suj <- rename(BOLD_det_suj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3'))
 #get the group mean of activation for each ROI
 BOLD_det_mean <- aggregate(BOLD_det_suj[, 4:9], list(BOLD_det_suj$confidence, BOLD_det_suj$response ), mean)
 #get the se of activation for each ROI
 BOLD_det_se <- aggregate(BOLD_det_suj[, 4:9], list(BOLD_det_suj$confidence, BOLD_det_suj$response ), se)
 #combine with mean df==> ".x==mean, .y==se"
+
+#MM: It's generally not a good idea to use the same variable name twice for different things (see line 1060)
 BOLD_det_mean <- inner_join(BOLD_det_mean, BOLD_det_se, by=c("Group.1", "Group.2"))
 #rename the colum names 
 BOLD_det_mean <- rename(BOLD_det_mean,c('confidence'='Group.1', 'response'='Group.2'))
@@ -1025,6 +1072,8 @@ BOLD_det_mean <- rename(BOLD_det_mean,c('confidence'='Group.1', 'response'='Grou
 ######################################### 
 # BOLD data preparation discrimination 
 #########################################
+
+# MM: same here, using a function is better :)
 Data_Dis <- Data_Dis %>%
   filter(! BOLD_rTPJ=="NaN")
 Data_Dis
@@ -1071,6 +1120,9 @@ BOLD_til_mean <- rename(BOLD_til_mean,c('confidence'='Group.1', 'response'='Grou
 #################################### 
 # Plotting rTPJ 
 #################################### 
+
+# MM: This plotting should be in a function
+
 rTPJ_det <- ggplot(data=BOLD_det_mean, aes(x=confidence, y=BOLD_rTPJ.x)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
@@ -1277,6 +1329,8 @@ FPl_til
 ```
 &nbsp;
 
+<!-- MM: Are those nbsps necessary? -->
+
 &nbsp;
 
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3}
@@ -1330,7 +1384,51 @@ FPm_til
 ```
 &nbsp;
 
-&nbsp;
+
+```{r mixed_effects, eval=FALSE, echo=FALSE, cache=TRUE}
+color_scheme <- tibble(Detection=c("#e41a1c", "#377eb8"), 
+                       Discrimination=c("#984ea3", "#4daf4a"),
+                       Tilt=c("#999999","#f781bf"))
+
+plot_re_coefficients <- function(cur_task, ROI, df) {
+  
+  df$conf_as_factor <- factor(df$confidence)
+
+  # fit mixed effects model:
+  coefs <- lmer(
+    paste('BOLD_',ROI,' ~ conf_as_factor*response + (1|subj_id)',sep=''), #note that this is a random intercept only model!
+    df%>%filter(task==cur_task)) %>%
+    tidy()
+  
+  # add confidence and response rows
+  coefs$confidence =  c(1:6,1:6, NA, NA) # the last two rows are for random effects
+  coefs$response = c(rep(0,6), rep(1,6), NA, NA)
+  
+  # plot
+  plot <-ggplot(data=coefs, aes(x=confidence, y=estimate)) +
+    geom_line(aes(colour = factor(response))) +
+    geom_point(aes(color = factor(response)), size = 3) + 
+    geom_errorbar( aes(ymin = estimate+std.error, ymax =estimate-std.error, colour = factor(response)), width = 0.1)+
+    scale_color_manual(values=color_scheme[[cur_task]]) +
+    labs(title=paste(ROI,cur_task), x= "confidence", y="mean activation", color="Response") +
+    theme_classic() + scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + scale_y_continuous(limits = c(-1, 1), breaks=number_ticks(6))+
+    theme(legend.position=c(0.7, 0.15),  
+                   legend.background = element_blank(),
+                   legend.key = element_blank(),
+          legend.title = (element_text(size = 8)),
+    legend.text = (element_text(size = 8)),
+          plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
+  print(plot)
+  
+}
+
+for (ROI in list('rTPJ','vmPFC','pMFC','FPl','FPm')) {
+  for (task in list('Detection','Discrimination','Tilt')) {
+    print(ROI)
+    plot_re_coefficients(task,ROI,Data_Valid)
+  }
+}
+```
 
 ## Citation 
 [@denison2018pnasusa][@mazor2020e]

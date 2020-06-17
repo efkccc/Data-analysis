@@ -10,3 +10,8 @@ RColorBrewer
 papaja
 MOTE
 MESS
+Matrix
+lme4
+lmerTest
+broom
+broom.mixed
