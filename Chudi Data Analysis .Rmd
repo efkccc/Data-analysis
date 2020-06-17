@@ -97,6 +97,7 @@ individual_accuracy <- individual_trials %>%
 # 1.Performance across different tasks.
 
 ```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
+## MM: note how I've included fig.cap in the header, to include a caption and also a label (fig:accuracy) that we can later reference in the text.
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 data <- individual_accuracy
 ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs(title="Mean accuracy across three tasks", y="mean accuracy")+ theme_classic() +
@@ -304,7 +305,26 @@ confidence_distribution <- Data_Valid %>%
   group_by(task,confidence,response) %>%
   summarise(no_trials=(count=n())) %>%
   mutate(frequency = no_trials / no_subj)
-confidence_distribution
+
+confidence_distribution$response[(confidence_distribution$response=="0") &
+                                   confidence_distribution$task=='Detection'] <- "No"
+
+confidence_distribution$response[(confidence_distribution$response=="1") &
+                                   confidence_distribution$task=='Detection'] <- "Yes"
+
+confidence_distribution$response[(confidence_distribution$response=="0") &
+                                   confidence_distribution$task=='Discrimination'] <- "Anticlockwise"
+
+confidence_distribution$response[(confidence_distribution$response=="1") &
+                                   confidence_distribution$task=='Discrimination'] <- "Clockwise"
+
+confidence_distribution$response[(confidence_distribution$response=="0") &
+                                   confidence_distribution$task=='Tilt'] <- "Vertical"
+
+confidence_distribution$response[(confidence_distribution$response=="1") &
+                                   confidence_distribution$task=='Tilt'] <- "Tilted"
+
+confidence_distribution$response <- factor(confidence_distribution$response, levels=c('No','Yes','Anticlockwise','Clockwise','Vertical','Tilted'))
 
 #creat a new file with only detection 
 confidence_detection <- confidence_distribution %>% 
@@ -347,6 +367,20 @@ ci <- se(confidence_detection$frequency)
 
 &nbsp;
 
+```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:confidence} Confidence distributions across three tasks and responses. Error bars represent the standard error of the mean.", cache=TRUE}
+#plot the frequency of confidence ratings for all three tasks
+
+task_labs = c('Detection','Discrimination','Tilt Recognition')
+names(task_labs) = c('Detection','Discrimination','Tilt')
+cbPalette <- c("#e41a1c", "#377eb8","#4daf4a", "#984ea3","#999999","#f781bf")
+confidence_det <- ggplot(confidence_distribution, mapping = aes(x = confidence, y= frequency, fill= response)) +
+  geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+ scale_fill_manual(values=cbPalette) + theme_classic() + labs(title="Confidence by task and response", y="frequency")+ scale_x_continuous(breaks=number_ticks(6)) + geom_errorbar(aes(ymin=frequency-ci, ymax=frequency+ci), width=.1, position=pd) +ylim(0,30)+
+  theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
+confidence_det+facet_grid(rows=vars(task),
+                          labeller = labeller(task=task_labs))
+```
+
+
 ```{r echo=FALSE}
 #plot the frequency of confidence ratings for detection
 cbPalette <- c("#e41a1c", "#377eb8")
@@ -355,6 +389,9 @@ confidence_det <- ggplot(confidence_detection, mapping = aes(x = confidence, y= 
   theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 confidence_det
 ```
+
+
+
 &nbsp;
 
 &nbsp;
@@ -402,7 +439,7 @@ t1 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = det)$
 p3 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = til)$p.value
 t3 <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = til)$statistic
 ```
-Within detection, a significant difference in mean confidence was observed between YES (target present) and NO (target absent) responses (see Fig.4 above) (t=`r apa(t1, 2, T)`, p = `r myround_p (apa(p1, 2, T))`) , such that participants are more confident in their YES responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (t=`r apa(t3, 2, T)`, p = `r myround_p(apa(p3, 2, T))`).
+Within detection, a significant difference in mean confidence was observed between YES (target present) and NO (target absent) responses (see Fig.4 above) (t=`r apa(t1, 2, T)`, p = `r myround_p (apa(p1, 2, T))`) , such that participants are more confident in their YES responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (t=`r apa(t3, 2, T)`, p = `r myround_p(apa(p3, 2, T))`; see Figure \ref{fig:confidence}).
 
 &nbsp;
 
