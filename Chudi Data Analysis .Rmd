@@ -1,5 +1,5 @@
 ---
-title: "Behavioural Analysis"
+title: "Chudi Thesis"
 author: "Chudi Gong"
 date: "17/06/2020"
 geometry: margin=1.5cm
@@ -28,6 +28,9 @@ myround_p <- function(x, digits = 3){
 }
 
 ```
+# 1.Introduction 
+
+# 2.Method 
 
 ```{r include=FALSE}
 #open file
@@ -73,7 +76,7 @@ total_trials
 #get the number of trials for each participants where they responded 1, p for positive
 p_trials <- Data_Valid %>%
   group_by(subj_id, task) %>%
-  filter(response=="1") %>%
+  filter(stimulus=="1") %>%
   summarise(p_trials=(count=n()))
 p_trials
 
@@ -96,7 +99,8 @@ individual_accuracy
 
 ```
 
-# 1.Performance across different tasks.
+# 3.Results
+## 3.1
 
 ```{r, echo=FALSE, message=FALSE}
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
@@ -148,6 +152,7 @@ hit_det <- trials %>%
   mutate(hit_rate = no_trials / p_trials) %>%
   mutate(z_hit= qnorm(hit_rate))
 hit_det
+
 det_hit <- mean(hit_det$hit_rate)
 
 fa_det <- trials %>% 
@@ -207,7 +212,9 @@ summary(aov.d)
 p2 <- summary(aov.d)[[1]][["Pr(>F)"]][[1]]
 F2<- summary(aov.d)[[1]][["F value"]][[1]]
 
-#response bias 
+###########################
+#response bias calculation
+###########################
 response <- Data_Valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id,task, response) %>% 
@@ -251,16 +258,16 @@ sd_bias3 <- sd(til_resp$probability)
 tilt<- (rnorm(no_subj, mean = til_bias, sd = sd_bias3))
 t.test(tilt, mu = 0.5) # Ho: mu = 0.5
 
-#############################
+#####################
 #calculating rt
-#############################
+#####################
 rt <- Data_Valid %>%
   group_by(subj_id, task, response, accuracy) %>%
   summarise(median(rt)) %>%
   rename("median_rt"="median(rt)")
 rt
 
-#calculating mean rt for correct and incorrect trials
+#calculating median rt for correct and incorrect trials
 rt_accuracy <- rt %>%
   group_by(accuracy) %>%
   summarise(median(median_rt)) %>%
@@ -965,7 +972,7 @@ roc2_til
 
 &nbsp;
 
-Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve, is significantly higher for Yes (`r apa(unname(auc_det['Yes']), 2, T) `) than No (`r apa(unname(auc_det['No']), 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(unname(auc_til['Tilted']), 2, T)`) than Vertical (`r apa(unname(auc_til['Vertical']), 2, T)`) responses. 
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve, is significantly higher for Yes (`r apa(unname(auc_det['Yes']), 2, T) `) than No (`r apa(unname(auc_det['No']), 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(unname(auc_til['Tilted']), 2, T)`) than Vertical (`r apa(unname(auc_til['Vertical']), 2, T)`) responses. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being pressent than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by partcipants' confidence ratings than the correct judgments of a stimulus being vertical. 
 
 # 5.BOLD signal in ROIs
 
@@ -980,13 +987,13 @@ Data_Det$response[Data_Det$response=="0"] <- "No"
 Data_Det$response[Data_Det$response=="1"] <- "Yes"
 
 #get the mean activation at each ROI for each participants at each confidence level for each response
-BOLD_det_suj <- aggregate(Data_Det[, 16:21], list(Data_Det$subj_id, Data_Det$confidence, Data_Det$response ), mean)
+BOLD_det_subj <- aggregate(Data_Det[, 16:21], list(Data_Det$subj_id, Data_Det$confidence, Data_Det$response, Data_Det$task ), mean)
 #rename the colum names 
-BOLD_det_suj <- rename(BOLD_det_suj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3'))
+BOLD_det_subj <- rename(BOLD_det_subj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3', 'task'='Group.4'))
 #get the group mean of activation for each ROI
-BOLD_det_mean <- aggregate(BOLD_det_suj[, 4:9], list(BOLD_det_suj$confidence, BOLD_det_suj$response ), mean)
+BOLD_det_mean <- aggregate(BOLD_det_subj[, 5:10], list(BOLD_det_subj$confidence, BOLD_det_subj$response), mean)
 #get the se of activation for each ROI
-BOLD_det_se <- aggregate(BOLD_det_suj[, 4:9], list(BOLD_det_suj$confidence, BOLD_det_suj$response ), se)
+BOLD_det_se <- aggregate(BOLD_det_subj[, 5:10], list(BOLD_det_subj$confidence, BOLD_det_subj$response ), se)
 #combine with mean df==> ".x==mean, .y==se"
 BOLD_det_mean <- inner_join(BOLD_det_mean, BOLD_det_se, by=c("Group.1", "Group.2"))
 #rename the colum names 
@@ -1002,13 +1009,13 @@ Data_Dis$response[Data_Dis$response=="0"] <- "Anticlockwise"
 Data_Dis$response[Data_Dis$response=="1"] <- "Clockwise"
 
 #get the mean activation at each ROI for each participants at each confidence level for each response
-BOLD_dis_suj <- aggregate(Data_Dis[, 16:21], list(Data_Dis$subj_id, Data_Dis$confidence, Data_Dis$response ), mean)
+BOLD_dis_subj <- aggregate(Data_Dis[, 16:21], list(Data_Dis$subj_id, Data_Dis$confidence, Data_Dis$response, Data_Dis$task), mean)
 #rename the colum names 
-BOLD_dis_suj <- rename(BOLD_dis_suj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3'))
+BOLD_dis_subj <- rename(BOLD_dis_subj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3', 'task'='Group.4'))
 #get the group mean of activation for each ROI
-BOLD_dis_mean <- aggregate(BOLD_dis_suj[, 4:9], list(BOLD_dis_suj$confidence, BOLD_dis_suj$response ), mean)
+BOLD_dis_mean <- aggregate(BOLD_dis_subj[, 5:10], list(BOLD_dis_subj$confidence, BOLD_dis_subj$response ), mean)
 #get the se of activation for each ROI
-BOLD_dis_se <- aggregate(BOLD_dis_suj[, 4:9], list(BOLD_dis_suj$confidence, BOLD_dis_suj$response ), se)
+BOLD_dis_se <- aggregate(BOLD_dis_subj[, 5:10], list(BOLD_dis_subj$confidence, BOLD_dis_subj$response ), se)
 #combine with mean df==> ".x==mean, .y==se"
 BOLD_dis_mean <- inner_join(BOLD_dis_mean, BOLD_dis_se, by=c("Group.1", "Group.2"))
 #rename the colum names 
@@ -1024,13 +1031,13 @@ Data_Til$response[Data_Til$response=="0"] <- "Vertical"
 Data_Til$response[Data_Til$response=="1"] <- "Tilted"
 
 #get the mean activation at each ROI for each participants at each confidence level for each response
-BOLD_til_suj <- aggregate(Data_Til[, 16:21], list(Data_Til$subj_id, Data_Til$confidence, Data_Til$response ), mean)
+BOLD_til_subj <- aggregate(Data_Til[, 16:21], list(Data_Til$subj_id, Data_Til$confidence, Data_Til$response, Data_Til$task ), mean)
 #rename the colum names 
-BOLD_til_suj <- rename(BOLD_til_suj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3'))
+BOLD_til_subj <- rename(BOLD_til_subj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3', 'task'='Group.4'))
 #get the group mean of activation for each ROI
-BOLD_til_mean <- aggregate(BOLD_til_suj[, 4:9], list(BOLD_til_suj$confidence, BOLD_til_suj$response ), mean)
+BOLD_til_mean <- aggregate(BOLD_til_subj[, 5:10], list(BOLD_til_subj$confidence, BOLD_til_subj$response ), mean)
 #get the se of activation for each ROI
-BOLD_til_se <- aggregate(BOLD_til_suj[, 4:9], list(BOLD_til_suj$confidence, BOLD_til_suj$response ), se)
+BOLD_til_se <- aggregate(BOLD_til_subj[, 5:10], list(BOLD_til_subj$confidence, BOLD_til_subj$response ), se)
 #combine with mean df==> ".x==mean, .y==se"
 BOLD_til_mean <- inner_join(BOLD_til_mean, BOLD_til_se, by=c("Group.1", "Group.2"))
 #rename the colum names 
@@ -1298,12 +1305,102 @@ FPm_til <- ggplot(data=BOLD_til_mean, aes(x=confidence, y=BOLD_FPm.x)) +
         plot.title = (element_text(color = "black", size = 12, face = "italic"))) 
 FPm_til
 ```
+
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3}
+
+BOLD_mean_subj <- rbind(BOLD_det_subj, BOLD_dis_subj, BOLD_til_subj)
+
+#linear effect of conf (as continuous variables) on ROIs
+lm_conf_vmPFC <- lm(formula = BOLD_vmPFC~confidence, data = BOLD_mean_subj)
+lm_conf_pMFC <- lm(formula = BOLD_pMFC~confidence, data = BOLD_mean_subj)
+lm_conf_rTPJ <- lm(formula = BOLD_rTPJ~confidence, data = BOLD_mean_subj)
+lm_conf_FPl <- lm(formula = BOLD_FPl~confidence, data = BOLD_mean_subj)
+lm_conf_FPm <- lm(formula = BOLD_FPm~confidence, data = BOLD_mean_subj)
+
+#pull out beta and p values
+b_lm_vmPFC <- coef(summary(lm_conf_vmPFC))[, "Estimate"]
+b_lm_pMFC <- coef(summary(lm_conf_pMFC))[, "Estimate"]
+b_lm_rTPJ <- coef(summary(lm_conf_rTPJ))[, "Estimate"]
+b_lm_FPl <- coef(summary(lm_conf_FPl))[, "Estimate"]
+b_lm_FPm <- coef(summary(lm_conf_FPm))[, "Estimate"]
+
+p_lm_vmPFC <- coef(summary(lm_conf_vmPFC))[, "Pr(>|t|)"]
+p_lm_pMFC <- coef(summary(lm_conf_pMFC))[, "Pr(>|t|)"]
+p_lm_rTPJ <- coef(summary(lm_conf_rTPJ))[, "Pr(>|t|)"]
+p_lm_FPl <- coef(summary(lm_conf_FPl))[, "Pr(>|t|)"]
+p_lm_FPm <- coef(summary(lm_conf_FPm))[, "Pr(>|t|)"]
+
+as.numeric(b_lm_vmPFC)
+as.numeric(b_lm_pMFC)
+as.numeric(b_lm_rTPJ)
+as.numeric(b_lm_FPl)
+as.numeric(b_lm_FPm)
+as.numeric(p_lm_vmPFC)
+as.numeric(p_lm_pMFC)
+as.numeric(p_lm_rTPJ)
+as.numeric(p_lm_FPl)
+as.numeric(p_lm_FPm)
+
+#lm with interactor task
+lm_task_vmPFC <- lm(formula = BOLD_vmPFC~confidence+ confidence:task, data = BOLD_mean_subj)
+lm_task_rTPJ <- lm(formula = BOLD_rTPJ~confidence+ confidence:task, data = BOLD_mean_subj)
+lm_task_mPFC <- lm(formula = BOLD_pMFC~confidence+ confidence:task, data = BOLD_mean_subj)
+lm_task_FPl <- lm(formula = BOLD_FPl~confidence+ confidence:task, data = BOLD_mean_subj)
+lm_task_FPm <- lm(formula = BOLD_FPm~confidence+ confidence:task, data = BOLD_mean_subj)
+
+#lm with interactor response detection
+lm_resp_vmPFC <- lm(formula = BOLD_vmPFC~confidence+ confidence:response, data = BOLD_det_subj)
+lm_resp_rTPJ <- lm(formula = BOLD_rTPJ~confidence+ confidence:response, data = BOLD_det_subj)
+lm_resp_mPFC <- lm(formula = BOLD_pMFC~confidence+ confidence:response, data = BOLD_det_subj)
+lm_resp_FPl <- lm(formula = BOLD_FPl~confidence+ confidence:response, data = BOLD_det_subj)
+lm_resp_FPm <- lm(formula = BOLD_FPm~confidence+ confidence:response, data = BOLD_det_subj)
+
+#lm with interactor response discrimination
+lm_resp_vmPFC <- lm(formula = BOLD_vmPFC~confidence+ confidence:response, data = BOLD_dis_subj)
+lm_resp_rTPJ <- lm(formula = BOLD_rTPJ~confidence+ confidence:response, data = BOLD_dis_subj)
+lm_resp_mPFC <- lm(formula = BOLD_pMFC~confidence+ confidence:response, data = BOLD_dis_subj)
+lm_resp_FPl <- lm(formula = BOLD_FPl~confidence+ confidence:response, data = BOLD_dis_subj)
+lm_resp_FPm <- lm(formula = BOLD_FPm~confidence+ confidence:response, data = BOLD_dis_subj)
+
+#lm with interactor response tilt
+lm_resp_vmPFC <- lm(formula = BOLD_vmPFC~confidence+ confidence:response, data = BOLD_til_subj)
+lm_resp_rTPJ <- lm(formula = BOLD_rTPJ~confidence+ confidence:response, data = BOLD_til_subj)
+lm_resp_mPFC <- lm(formula = BOLD_pMFC~confidence+ confidence:response, data = BOLD_til_subj)
+lm_resp_FPl <- lm(formula = BOLD_FPl~confidence+ confidence:response, data = BOLD_til_subj)
+lm_resp_FPm <- lm(formula = BOLD_FPm~confidence+ confidence:response, data = BOLD_til_subj)
+
+```
+## Effect of confidence on BOLD signal in ROIs
+From our data, negative linear confidence-related effects were observed in right Temporoparietal Junction (rTPJ) ($\beta$=`r apa(b_lm_rTPJ[2],2,T)`, p=`r apa(p_lm_rTPJ[2],3,T)`), Posterior Medial Frontal Cortex (pMFC)($\beta$=`r apa(b_lm_pMFC[2], 2,T)`, p=`r myround_p(apa(p_lm_pMFC[2], 3,T))`), as well as polsitive linear correlation between confidence and BOLD signals in Ventromedial Prefrontal Cortex (vmPFC)($\beta$=`r apa(b_lm_vmPFC[2],2,T)`, p=`r myround_p(apa(p_lm_vmPFC[2],3,T))`), Medial Frontopolar Cortex (FPm)($\beta$=`r apa(b_lm_FPm[2],2,T)`, p=`r apa(p_lm_FPm[2], 3,T)`). 
+
+To investigate whether linear effects of confidence on BOLD signal were influenced by the type of task (Detection vs. Discrimination vs. Tilt recognition) and/or reponse (Yes vs. NO; Clockwise vs. Anticlockwise; Vertical vs. Tilted), linear models with interactions were tested. The effects of confidence failed to show a significant difference between three tasks in all ROIs (all p values > 0.23). No sognificant effect was observed between Yes and No response in detection (all p values > 0.11), between Clockwise and Anticlockwise responses in discrimination (all p values > 0.33) or between Vertical and Tilted responses in tilt recognition (all p values > 0.14).
+
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3}
+#non-linear effect of conf and response (as categorical variables) on rTPJ
+aov.resp_rTPJ_det <- aov(BOLD_rTPJ~response,data=BOLD_det_subj)
+aov.conf_rTPJ_det <- aov(BOLD_rTPJ~confidence,data=BOLD_det_subj)
+
+aov.resp_rTPJ_dis <- aov(BOLD_rTPJ~response,data=BOLD_dis_subj)
+aov.conf_rTPJ_dis <- aov(BOLD_rTPJ~confidence,data=BOLD_dis_subj)
+
+aov.resp_rTPJ_til <- aov(BOLD_rTPJ~response,data=BOLD_til_subj)
+aov.conf_rTPJ_til <- aov(BOLD_rTPJ~confidence,data=BOLD_til_subj)
+
+summary(aov.resp_rTPJ_det)
+summary(aov.conf_rTPJ_det)
+summary(aov.resp_rTPJ_dis)
+summary(aov.conf_rTPJ_dis)
+summary(aov.resp_rTPJ_til)
+summary(aov.conf_rTPJ_til)
+
+#effect of conf and response on vmPFC
+```
 &nbsp;
 
 &nbsp;
 
 ## Citation 
-[@denison2018pnasusa][@mazor2020e]
+[@denison2018pnasusa][@mazor2020e] 
 &nbsp;
 
 ## Reference 
