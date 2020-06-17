@@ -1,0 +1,12 @@
+base
+ggplot2
+tinytex
+vctrs
+dplyr
+magrittr
+readr
+tidyr
+RColorBrewer
+papaja
+MOTE
+MESS

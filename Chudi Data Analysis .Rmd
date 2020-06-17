@@ -22,6 +22,8 @@ library(papaja)
 library(MOTE)
 library(MESS)
 getwd()
+
+# MM: I've commented this function because papaja has its own function to present p-values!
 myround_p <- function(x, digits = 3){
   if (x < 10^-digits) return(paste('<', 10^-digits))
   paste('=', myround(x, digits))
@@ -29,7 +31,8 @@ myround_p <- function(x, digits = 3){
 
 ```
 
-```{r include=FALSE}
+```{r include=FALSE, cache=TRUE}
+
 #open file
 Data <- read.csv("Data.csv")
 
@@ -40,42 +43,39 @@ Data_Valid <- Data %>%
   filter(! response=="NaN") %>%
   mutate(rt=response_time*1000) %>%
   mutate(log_rt=log(rt))
-Data_Valid 
 
 #get number of subjects
-Behavioural_subj <- Data_Valid %>% 
-  group_by(subj_id) %>%
-  summarise(totaltrials=(count=n()))
-Behavioural_subj
-no_subj <- nrow(Behavioural_subj)
+# Behavioural_subj <- Data_Valid %>% 
+#   group_by(subj_id) %>%
+#   summarise(totaltrials=(count=n()))
+# Behavioural_subj
+
+# MM: since you're not using Behavioural subj anywhere I figured 
+# this was a more economical way to get the number of subjects:
+no_subj <- length(unique(Data_Valid$subj_id))
 
 Data_Det <- Data_Valid %>% 
   #only include detection 
   filter(task=="Detection")
-Data_Det
 
 Data_Dis <- Data_Valid %>% 
-  #only include detection 
+  #only include discrimination
   filter(task=="Discrimination")
-Data_Dis
 
 Data_Til<- Data_Valid %>% 
-  #only include detection 
+  #only include tilt recognition 
   filter(task=="Tilt")
-Data_Til
 
 #count the total no of trials for each task for each participant
 total_trials <- Data_Valid %>%
   group_by(subj_id, task) %>%
   summarise(totaltrials=(count=n()))
-total_trials
 
 #get the number of trials for each participants where they responded 1, p for positive
 p_trials <- Data_Valid %>%
   group_by(subj_id, task) %>%
   filter(response=="1") %>%
   summarise(p_trials=(count=n()))
-p_trials
 
 #count no. of correct trials for each task for each participant
 individual_trials <- Data_Valid %>% 
@@ -86,43 +86,33 @@ individual_trials <- Data_Valid %>%
   #combine with the total data frame
   inner_join(total_trials, by = c ("subj_id","task")) %>%
   mutate(proportion = no_trials / totaltrials)
-individual_trials
 
 #display accuracy 
 individual_accuracy <- individual_trials %>%
   filter(accuracy==1) %>%
   rename(correct=proportion)
-individual_accuracy
 
 ```
 
 # 1.Performance across different tasks.
 
-```{r, echo=FALSE, message=FALSE}
+```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 data <- individual_accuracy
-ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs(title="Fig.1 Mean accuracy across three tasks", y="mean accuracy")+ theme_classic() +
+ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs(title="Mean accuracy across three tasks", y="mean accuracy")+ theme_classic() +
    geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
-
 ```
 
 
-```{r, include=FALSE}
+```{r, include=FALSE, cache=TRUE}
 #display accuracy for each task 
 task_accuracy <- individual_accuracy %>%
   group_by(task) %>%
-  summarise(mean(correct))
-task_accuracy
-
-getmean <- task_accuracy$'mean(correct)'
-names(getmean) <-task_accuracy$task
+  summarise(mean(correct)) %>%
+  spread(key='task', value='mean(correct)')
 
 #ANOVA comparing task performance 
 aov.Mean_accuracy <- aov(correct~task,data=individual_accuracy)
-
-summary(aov.Mean_accuracy)
-p1 <- summary(aov.Mean_accuracy)[[1]][["Pr(>F)"]][[1]]
-F1 <- summary(aov.Mean_accuracy)[[1]][["F value"]][[1]]
 
 #############################
 #calculating HIT and FA rate
@@ -299,13 +289,16 @@ ttil <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,d
 p.til <-t.test(log_rt~response, mu=0, alt="two.sided",conf=0.95,var.equal=TRUE,data=Data_Til)$p.value
 
 ```
-Performan across the three tasks, detection (accuracy= `r apa(unname(getmean['Detection']), 2, T)`, d'= `r apa(d_det, 2, T)`),  discrimination (accuracy= `r apa(unname(getmean['Discrimination']), 2, T)`, d'= `r apa(d_dis, 2, T)`) and tilt recognition (accuracy = `r apa(unname(getmean['Tilt']), 2, T)`, d'= `r apa(d_til, 2, T)`) was similar. An one-way ANOVA failed to detect a significant difference between the accuracy of these threee tasks (F= `r apa(F1, 2, T)`, p= `r apa(p1, 2, T)`, ) and d' (F= `r apa(F2, 2, T)`, p= `r apa(p2, 2, T)`).
+
+Detection (accuracy= `r printnum(task_accuracy$Detection)`, d'= `r apa(d_det, 2, T)`),  discrimination (accuracy= `r printnum(task_accuracy$Discrimination)`, d'= `r apa(d_dis, 2, T)`) and tilt recognition (accuracy = `r printnum(task_accuracy$Tilt)`, d'= `r apa(d_til, 2, T)`) was similar. A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov.Mean_accuracy)$full_result$task` and d' (F= `r apa(F2, 2, T)`, p= `r apa(p2, 2, T)`; see Figure \ref{fig:accuracy})).
 
 The probability of responding YES in detection was `r format(round(print(det_bias), 2), nsmall = 2)` (± `r apa(sd_bias1, 2, T)`), and was significantly different from 0.5 (ADD T TEST RESULTS). The probability of responding CLOCKWISE was `r apa(dis_bias, 2, T)` (± `r apa(sd_bias2, 2, T)`) and was not significantly different from 0.5. For the tilt recognition task, the probability of responding TILTED was (`r apa(til_bias, 2, T)` ± `r apa(sd_bias3, 2, T)`).
 
-Response time was faster for correct response (1st quartile= `r apa(qt1_correct, 2, T)`, median= `r apa(unname(getmedian['correct']), 2, T)`, 3rd quartile= `r apa(qt3_correct, 2, T)` milliseconds) than incorrect responses (1st quartile= `r apa(qt1_incorrect, 2, T)`, median= `r apa(unname(getmedian['incorrect']), 2, T)`, 3rd quartile= `r apa(qt3_incorrect, 2, T)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (YES vs. NO, t=`r apa(tdet, 2, T)` p=`r apa(p.det, 2, T)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, t=`r apa(tdis, 2, T)`, p= `r apa(p.dis, 2, T)`) and tilt recognition (VERTICAL vs. TILTED, t=`r apa(ttil, 2, T)`, p= `r apa(p.til, 2, T)`) on response time. 
+Response time was faster for correct response (1st quartile= `r apa(qt1_correct, 2, T)`, median= `r apa(unname(getmedian['correct']), 2, T)`, 3rd quartile= `r apa(qt3_correct, 2, T)` milliseconds) than incorrect responses (1st quartile= `r apa(qt1_incorrect, 2, T)`, median= `r apa(unname(getmedian['incorrect']), 2, T)`, 3rd quartile= `r apa(qt3_incorrect, 2, T)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (YES vs. NO, t=`r apa(tdet, 2, T)` p=`r apa(p.det, 2, T)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, t=`r apa(tdis, 2, T)`, p= `r apa(p.dis, 2, T)`) and tilt recognition (VERTICAL vs. TILTED, t=`r apa(ttil, 2, T)`, p= `r apa(p.til, 2, T)`) on response time.
 
-```{r include=FALSE}
+
+
+```{r include=FALSE, cache=TRUE}
 #mean confidence frequency 
 confidence_distribution <- Data_Valid %>%
   group_by(task,confidence,response) %>%
@@ -391,7 +384,7 @@ confidence_til<- ggplot(confidence_tilt, mapping = aes(x = confidence, y= freque
 confidence_til
 ```
 
-```{r include=FALSE}
+```{r include=FALSE, cache=TRUE}
 det <- Data_Valid %>%
   filter(task=="Detection") 
 det
@@ -696,7 +689,7 @@ roc1_til
 &nbsp;
 
 # 4.Type 2 ROC curves
-```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5}
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=3.5, cache=TRUE}
 #Type 2 ROC preparation
 ###############
 #  Detection  #
@@ -969,7 +962,7 @@ Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curv
 
 # 5.BOLD signal in ROIs
 
-```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3.2}
+```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3.2, cache=TRUE}
 ####################################
 # BOLD data preparation detection 
 ####################################
