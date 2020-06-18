@@ -1,0 +1,17 @@
+base
+ggplot2
+tinytex
+vctrs
+dplyr
+magrittr
+readr
+tidyr
+RColorBrewer
+papaja
+MOTE
+MESS
+Matrix
+lme4
+lmerTest
+broom
+broom.mixed
