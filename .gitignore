@@ -38,3 +38,7 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
+# log and tex files 
+*.log
+*.tex
