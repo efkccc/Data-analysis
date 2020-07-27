@@ -8,28 +8,22 @@ published: true
 ---
 
 ```{r setup, include=FALSE}
-
-## MM: add in comments what is the purpose of each package. 
-## Better not to load packages that are not used.
 knitr::opts_chunk$set(echo = FALSE)
-library(ggplot2)
-library(citr)
-library(tinytex)
-library(vctrs)
-library(dplyr)
-library(magrittr)
-library(ggplot2)
-library(readr)
-library(tidyr)
-library(RColorBrewer)
-library(papaja)
-library(MOTE)
-library(MESS)
+library(ggplot2) # for plotting graphs
+library(citr) # for citation/reference management
+library(tinytex) # for LaTex file compiling 
+library(dplyr) # data manipulation
+library(magrittr) # readable code (for operators etc.)
+library(readr) # for reading data files (csv etc.)
+library(tidyr) # for tidying data
+library(data.table) # for data manipulation 
+library(RColorBrewer) # provides color palletes for graph plotting 
+library(papaja) # apa stype for reporting data
+library(MOTE) # required package for use of 'papaja'
+library(MESS) # statistical functions used in conjunstion with papaja
 library(lmerTest) # for mixed effects model fit
 library(broom.mixed) # to tidy model fit coefficients
 getwd()
-
-number_ticks <- function(n) {function(limits) pretty(limits, n)}
 ```
 # 1.Abstract
 
@@ -235,7 +229,8 @@ aov.Mean_accuracy <- aov(correct~task,data=individual_accuracy)
 #############################
 #calculating HIT and FA rate
 #############################
-#combine with the sti_trials data frame
+
+#count the number of accurate/inaccurate trials for each response for each task & combine with the sti_trials data frame
 trials <- data_valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id, task, accuracy, response) %>% 
@@ -243,79 +238,31 @@ trials <- data_valid %>%
   summarize(no_trials=(count = n())) %>%
   inner_join(sti_trials, by = c ("subj_id","task"))
 
-#calculating HIT FA rate for detection
-hit_det <- trials %>% 
-  filter(task=="Detection", response== "1", accuracy=="1") %>%
-  mutate(hit_rate = no_trials / sti_trials) %>%
-  mutate(z_hit= qnorm(hit_rate))
-hit_det
+# trabsfor trials into dta table and inclue only positive responses for three tasks
+dt  <- data.table(trials)%>% filter(response=="Yes"| response=="Tilted"| response=="Clockwise")
+# calculate the z value for hit and fa 
+rate_subj <- dt[, .(rate=no_trials/sti_trials), by=.(subj_id,response, accuracy)] %>% mutate(z_rate=qnorm(rate))  
 
-#calculating mean HIT rate for detection
-mean_mean_det_hit <- mean(hit_det$hit_rate)
+# drop the rate column (for later spreading to work)
+rate_subj$rate <- NULL
 
-fa_det <- trials %>% 
-  filter(task=="Detection", response== "1", accuracy=="0") %>%
-  mutate(fa_rate = no_trials / sti_trials) %>%
-  mutate(z_fa= qnorm(fa_rate)) %>%
-  inner_join(hit_det, by = c ("subj_id","task", "response", "sti_trials")) %>%
-  mutate(dprime= z_hit-z_fa)
-fa_det
+# spread the file based on accuracy (i.e. HIT and FA respectively)
+rate_subj <- spread(rate_subj,key='accuracy', value='z_rate')  
+colnames(rate_subj) <- c("subj_id", "response", "z_FA", "z_HIT")
 
-#calculating mean FA rate for detection
-det_fa <- mean(fa_det$fa_rate)
+# d prime for each subjects and task
+d_subj <- rate_subj[, .(d_prime=z_HIT-z_FA), by=.(subj_id,response)]
 
-#calculating HIT FA for discrimination
-hit_dis <- trials %>% 
-  filter(task=="Discrimination", response== "1", accuracy=="1") %>%
-  mutate(hit_rate = no_trials / sti_trials) %>%
-  mutate(z_hit= qnorm(hit_rate))
-hit_dis
-
-fa_dis<- trials %>% 
-  filter(task=="Discrimination", response== "1", accuracy=="0") %>%
-  mutate(fa_rate = no_trials / sti_trials)%>%
-  mutate(z_fa= qnorm(fa_rate)) %>%
-  inner_join(hit_dis, by = c ("subj_id","task", "response", "sti_trials")) %>%
-  mutate(dprime= z_hit-z_fa)
-fa_dis
-
-#calculating HIT FA rate for tilt
-hit_til <- trials %>% 
-  filter(task=="Tilt", response== "1", accuracy=="1") %>%
-  mutate(hit_rate = no_trials / sti_trials) %>%
-  mutate(z_hit= qnorm(hit_rate))
-hit_til
-
-til_hit <- mean(hit_til$hit_rate)
-
-fa_til<- trials %>% 
-  filter(task=="Tilt", response== "1", accuracy=="0") %>%
-  mutate(fa_rate = no_trials / sti_trials) %>%
-  mutate(z_fa= qnorm(fa_rate)) %>%
-  inner_join(hit_til, by = c ("subj_id","task", "response", "sti_trials")) %>%
-  mutate(dprime= z_hit-z_fa) 
-fa_til
-til_fa <- mean(fa_til$fa_rate)
-
-#merge together 
-d_prime <- rbind(fa_det, fa_dis, fa_til)
-
-#d values for each task
-d_det <- mean(fa_det$dprime)
-d_dis <- mean(fa_dis$dprime)
-d_til <- mean(fa_til$dprime)
-
+# d prime for each task
+d_task <- d_subj[, .(mean_d=mean(d_prime)), by=.(response)] 
 
 #ANOVA Calculation for d prime
-aov.d <- aov(dprime~task, data=d_prime)
-summary(aov.d)
-p2 <- summary(aov.d)[[1]][["Pr(>F)"]][[1]]
-F2<- summary(aov.d)[[1]][["F value"]][[1]]
+aov.d <- aov(d_prime~task, data=d_subj)
 
 ###########################
 #response bias calculation
 ###########################
-response <- data_valid %>% 
+response <_ data_valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id,task, response) %>% 
   #count number of correct/incorrect/NAH trials 
@@ -323,16 +270,15 @@ response <- data_valid %>%
   #combine with the total data frame
   inner_join(total_trials, by = c ("task","subj_id")) %>%
   mutate(probability = no_trials / totaltrials)
-response
+
 
 #response bias for detection
 det_resp <- response %>% filter(task=="Detection") %>%filter(response=="1")
 
 det_bias <- mean(det_resp$probability)
 sd_bias1 <- sd(det_resp$probability)
-
 detection<- (rnorm(no_subj, mean = det_bias, sd = sd_bias1))
-# MM: aren't you saving the t.test results to a variable?
+
 t_det <- t.test(detection, mu = 0.5) # Ho: mu = 0.5
 
 #response bias for discrimination
@@ -379,13 +325,9 @@ getmedian <- rt_accuracy$'median_rt'
 names(getmedian) <-rt_accuracy$accuracy
 
 #calling out quantiles of rt for correct and incorrect trials
-correct_trials <- rt %>%
-  filter(accuracy==1)
-correct_trials
+correct_trials <- rt %>% filter(accuracy==1)
 
-incorrect_trials <- rt %>%
-  filter(accuracy==0)
-incorrect_trials 
+incorrect_trials <- rt %>% filter(accuracy==0)
 
 qt_correct <- quantile(correct_trials$median_rt, c(.25,.5,.75))
 qt_correct <- quantile(incorrect_trials$median_rt, c(.25,.5,.75))
@@ -565,9 +507,9 @@ BOLD_til_mean <- subset(data_BOLD_group, response=="Tilted"| response=="Vertical
 ```
 
 ```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=4}
-#################################### 
+##########################
 # Plotting log_rt 
-####################################
+#########################
 rt_det <- ggplot(data=BOLD_det_mean, aes(x=confidence, y=log_rt)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
