@@ -219,17 +219,16 @@ individual_accuracy <- individual_trials %>% filter(accuracy==1) %>%rename(corre
 
 # 4.Results
 ## 4.1.Performance across threee tasks
-```{r, include=FALSE, cache=TRUE}
+```{r accuracy& d'& rt, include=FALSE, cache=TRUE}
 #display accuracy for each task 
 task_accuracy <- individual_accuracy %>% group_by(task) %>% summarise(mean(correct)) %>% spread(key='task', value='mean(correct)')
 
 #ANOVA comparing task performance 
-aov.Mean_accuracy <- aov(correct~task,data=individual_accuracy)
+aov_accuracy <- aov_ez(data=individual_accuracy, dv= "correct", within= "task", id= "subj_id")
 
-#############################
-#calculating HIT and FA rate
-#############################
-
+#################
+#calculating d'
+#################
 #count the number of accurate/inaccurate trials for each response for each task & combine with the sti_trials data frame
 trials <- data_valid %>% 
   #group by ID, type of task and accuracy
@@ -238,12 +237,12 @@ trials <- data_valid %>%
   summarize(no_trials=(count = n())) %>%
   inner_join(sti_trials, by = c ("subj_id","task"))
 
-# trabsfor trials into dta table and inclue only positive responses for three tasks
+# transform trials into data table and include only positive responses for three tasks
 dt  <- data.table(trials)%>% filter(response=="Yes"| response=="Tilted"| response=="Clockwise")
 # calculate the z value for hit and fa 
 rate_subj <- dt[, .(rate=no_trials/sti_trials), by=.(subj_id,response, accuracy)] %>% mutate(z_rate=qnorm(rate))  
 
-# drop the rate column (for later spreading to work)
+# drop the rate column (for later 'spread' function to work properly)
 rate_subj$rate <- NULL
 
 # spread the file based on accuracy (i.e. HIT and FA respectively)
@@ -256,52 +255,38 @@ d_subj <- rate_subj[, .(d_prime=z_HIT-z_FA), by=.(subj_id,response)]
 # d prime for each task
 d_task <- d_subj[, .(mean_d=mean(d_prime)), by=.(response)] 
 
-#ANOVA Calculation for d prime
-aov.d <- aov(d_prime~task, data=d_subj)
+#ANOVA comparing d prime
+aov.d <- aov_ez(data=d_subj,
+                id="subj_id",
+                dv= "d_prime",
+                within = "response")
 
 ###########################
-#response bias calculation
+# calculating response bias 
 ###########################
-response <_ data_valid %>% 
+response <- data_valid %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id,task, response) %>% 
   #count number of correct/incorrect/NAH trials 
   summarize(no_trials=(count = n())) %>%
   #combine with the total data frame
   inner_join(total_trials, by = c ("task","subj_id")) %>%
-  mutate(probability = no_trials / totaltrials)
+  mutate(prob = no_trials / totaltrials)
 
+# create a function to get the mean response and compare with 0.5
+resp_bias <- function(resp, df){
+  df <- df %>% filter(response==resp)
+  resp_mean <- mean(df$prob)
+  resp_sd <- sd(df$prob)
+  task <- (rnorm(no_subj, mean = resp_mean, sd = resp_sd))
+  apa_t <- apa_print(t.test(task, mu = 0.5))
+  my_list <- list("response"=resp, "mean"=resp_mean, "sd"=resp_sd, "apa_t"=apa_t)
+  return(my_list)
+}
 
-#response bias for detection
-det_resp <- response %>% filter(task=="Detection") %>%filter(response=="1")
-
-det_bias <- mean(det_resp$probability)
-sd_bias1 <- sd(det_resp$probability)
-detection<- (rnorm(no_subj, mean = det_bias, sd = sd_bias1))
-
-t_det <- t.test(detection, mu = 0.5) # Ho: mu = 0.5
-
-#response bias for discrimination
-dis_resp <- response %>%
-  filter(task=="Discrimination") %>%
-  filter(response=="1")
-dis_resp
-
-dis_bias <- mean(dis_resp$probability)
-sd_bias2 <- sd(dis_resp$probability)
-discrimination<- (rnorm(no_subj, mean = dis_bias, sd = sd_bias2))
-t.test(discrimination, mu = 0.5) # Ho: mu = 0.5
-
-#response bias for tilt recognition
-til_resp <- response %>%
-  filter(task=="Tilt") %>%
-  filter(response=="1")
-til_resp
-
-til_bias <- mean(til_resp$probability)
-sd_bias3 <- sd(til_resp$probability)
-tilt<- (rnorm(no_subj, mean = til_bias, sd = sd_bias3))
-t.test(tilt, mu = 0.5) # Ho: mu = 0.5
+resp_det <- resp_bias('Yes', response)
+resp_dis <- resp_bias('Clockwise', response)
+resp_til <-resp_bias('Tilted', response)
 
 #####################
 #calculating rt
@@ -311,51 +296,72 @@ rt <- data_valid %>%
   summarise(median(rt)) %>%
   rename("median_rt"="median(rt)")
 
-#calculating median rt for correct and incorrect trials
-rt_accuracy <- rt %>%
-  group_by(accuracy) %>%
-  summarise(median(median_rt)) %>%
-  rename("median_rt"="median(median_rt)") 
+dt <- data.table(data_valid)
+subj_rt <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, response, accuracy)]
+rt <- subj_rt[, .(median_rt=median(median_rt)), by=.(task, response, accuracy)]
 
-rt_accuracy$accuracy[rt_accuracy$accuracy=="0"]<-"incorrect"
-rt_accuracy$accuracy[rt_accuracy$accuracy=="1"]<-"correct"
+qt_accuracy <- rt[, .(quantile(median_rt, c(.25,.5,.75))), by=accuracy]
 
-#calling out median rt for correct and incorrect trials
-getmedian <- rt_accuracy$'median_rt'
-names(getmedian) <-rt_accuracy$accuracy
-
-#calling out quantiles of rt for correct and incorrect trials
-correct_trials <- rt %>% filter(accuracy==1)
-
-incorrect_trials <- rt %>% filter(accuracy==0)
-
-qt_correct <- quantile(correct_trials$median_rt, c(.25,.5,.75))
-qt_correct <- quantile(incorrect_trials$median_rt, c(.25,.5,.75))
-
-#get t test results detection, discrimination and tilt 
-tdet <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE, data=Data_Det)
-tdis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Data_Dis)
-ttil <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=Data_Til)
+#t test comparing log_rt for detection, discrimination and tilt 
+t_rt_det <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE, data=data_det)
+t_rt_dis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=data_dis)
+t_rt_til <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=data_til)
 
 ```
 
-Detection (accuracy= `r printnum(task_accuracy$Detection)`, d'= `r apa(d_det, 2, T)`),  discrimination (accuracy= `r printnum(task_accuracy$Discrimination)`, d'= `r apa(d_dis, 2, T)`) and tilt recognition (accuracy = `r printnum(task_accuracy$Tilt)`, d'= `r apa(d_til, 2, T)`) was similar. A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov.Mean_accuracy)$full_result$task` and d' (F= `r apa(F2, 2, T)`, p= `r apa(p2, 2, T)`; see Figure \ref{fig:accuracy})).
+Detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar. A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' (F= `r apa(F2, 2, T)`, p= `r apa(p2, 2, T)`; see Figure \ref{fig:accuracy})).
 
-The probability of responding Yes in detection was `r apa(print(det_bias), 2, T)` (± `r apa(sd_bias1, 2, T)`), and was significantly different from 0.5 (ADD T TEST RESULTS). The probability of responding CLOCKWISE was `r apa(dis_bias, 2, T)` (± `r apa(sd_bias2, 2, T)`) and was not significantly different from 0.5. For the tilt recognition task, the probability of responding TILTED was (`r apa(til_bias, 2, T)` ± `r apa(sd_bias3, 2, T)`).
+The probability of responding Yes in detection was `r apa(resp_det$mean, 2, T)` (± `r apa(resp_det$sd, 2, T)`), and was significantly different from 0.5 (`r resp_det$apa_t`). The probability of responding CLOCKWISE was `r apa(resp_dis$mean, 2, T)` (± `r apa(resp_dis$sd, 2, T)`) and was not significantly different from 0.5 (`r resp_dis$apa_t`). For the tilt recognition task, the probability of responding TILTED was `r apa(resp_til$mean, 2, T)` ± `r apa(resp_til$sd, 2, T)`, which was not significantly different from responding VERTICAL (`r resp_til$apa_t`).
 
-Response time was faster for correct response (1st quartile= `r apa(qt1_correct, 2, T)`, median= `r apa(unname(getmedian['correct']), 2, T)`, 3rd quartile= `r apa(qt3_correct, 2, T)` milliseconds) than incorrect responses (1st quartile= `r apa(qt1_incorrect, 2, T)`, median= `r apa(unname(getmedian['incorrect']), 2, T)`, 3rd quartile= `r apa(qt3_incorrect, 2, T)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (Yes vs. NO, t=`r apa(tdet, 2, T)` p=`r apa(p.det, 2, T)` ), discrimination (CLOCKWISE vs. ANTICLOCKWISE, t=`r apa(tdis, 2, T)`, p= `r apa(p.dis, 2, T)`) and tilt recognition (VERTICAL vs. TILTED, t=`r apa(ttil, 2, T)`, p= `r apa(p.til, 2, T)`) on response time.
+Response time was faster for correct response (1st quartile= `r apa(qt_accuracy[1,1], 2, T)`, median= `r apa(qt_accuracy[2,2], 2, T)`, 3rd quartile= `r apa(qt_accuracy[3,2], 2, T)` milliseconds) than incorrect responses (1st quartile= `r apa(qt_accuracy[4,2], 2, T)`, median= `r apa(qt_accuracy[5,2], 2, T)`, 3rd quartile= `r apa(qqt_accuracy[6,2]t, 2, T)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (Yes vs. NO, `r apa_print(t_rt_det)`) discrimination (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`) and tilt recognition (VERTICAL vs. TILTED, `r apa_print(t_rt_til)`) on response time.
 
 ```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
-## MM: note how I've included fig.cap in the header, to include a caption and also a label (fig:accuracy) that we can later reference in the text.
+
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 data <- individual_accuracy
 ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs (y="mean accuracy")+ theme_classic() +
    geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 ```
 
+```{r, log_rt_figure, echo=FALSE, message=FALSE,fig.width=3.5, fig.height=3.2, cache=TRUE}
+
+subj_log_rt <- dt[, .(mean_log=mean(log_rt)), by=.(subj_id, task, response, confidence)]
+log_rt <- subj_log_rt[, .(log_rt=mean(mean_log), log_rt_se=se(mean_log)), by=.(task, response, confidence)]
+
+color_scheme <- tibble(Detection=c("#e41a1c", "#377eb8"), 
+                       Discrimination=c("#984ea3", "#4daf4a"),
+                       Tilt=c("#999999","#f781bf"))
+
+rt_plot <- function(cur_task, df){
+  df <- df %>% filter(task==cur_task)
+  plot <- ggplot(data=df, aes(x=confidence, y=log_rt)) +
+  geom_line(aes(colour = factor(response))) +
+  geom_point(aes(color = factor(response)), size = 3) + 
+  geom_errorbar( aes(ymin = log_rt-log_rt_se, ymax = log_rt+log_rt_se, colour = factor(response)), width = 0.1)+
+  scale_color_manual(values=color_scheme[[cur_task]]) +
+  labs(title=paste('Log reaction time,', cur_task), x= "confidence", y="mean RT", color="Response") +
+  theme_classic() + 
+  scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + 
+  theme(legend.position=c(0.8, 0.9),  
+        legend.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        legend.text = (element_text(size = 10, face = "bold")),
+        axis.text=(element_text(size=14)),
+        axis.title=(element_text(size=14,face="bold")),
+        plot.title = (element_text(color = "black", size = 14, face = "bold.italic"))) 
+  print(plot)
+}
+
+for (task in list('Detection','Discrimination','Tilt')) {
+    print(task)
+    rt_plot(task,log_rt)
+  }
+
+```
+
 ```{r include=FALSE, cache=TRUE}
 #mean confidence frequency 
-# MM: instead of creating three different dfs, I kept everything in one df here:
 confidence_distribution <- data_valid %>%
   group_by(task,confidence,response) %>%
   summarise(no_trials=(count=n())) %>%
@@ -369,7 +375,7 @@ t_conf_til <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data
 &nbsp;
 
 ## 4.2.Confidence distributions
-Within detection, a significant difference in mean confidence was observed between Yes (target present) and NO (target absent) responses (see Fig.4 above) (t=`r apa(t1, 2, T)`, p = `r apa(p1, 2, T)`) , such that participants are more confident in their Yes responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (t=`r apa(t3, 2, T)`, p = `r apa(p3, 2, T)`; see Figure \ref{fig:confidence}).
+Within detection, a significant difference in mean confidence was observed between Yes (target present) and NO (target absent) responses (see Fig.4 above) (`r apa_print(t_conf_det)`) , such that participants are more confident in their Yes responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (`r apa_print(t_conf_til)`; see Figure \ref{fig:confidence}).
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:confidence} Confidence distributions across three tasks and responses. Error bars represent the standard error of the mean.", cache=TRUE}
 
@@ -388,16 +394,17 @@ confidence_det <- ggplot(confidence_distribution, mapping = aes(x = confidence, 
   theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 confidence_det+facet_grid(rows=vars(task),
                           labeller = labeller(task=task_labs))
+
 ```
 &nbsp;
 
 &nbsp;
+
 ``` {r Type 2 ROC, echo=FALSE, message=FALSE, }
 #get the total number of trials for correct vs incoccrect for each response respectively 
 acc <- data_valid %>%
   group_by(subj_id, task, accuracy, response) %>%
   summarise(acc_trials=(count=n())) 
-acc
 
 #get the total number of trials for correct vs incoccrect for each response respectively at each confidence rating
 conf <- data_valid %>%
@@ -405,7 +412,6 @@ conf <- data_valid %>%
   summarise(conf_trials=(count=n())) %>%
   inner_join(acc, by = c ("subj_id","task", "response", "accuracy")) %>%
   mutate(prob=conf_trials/acc_trials)
-conf
 
 # combine with response dt (with no. trials for each response) + calculate the prob of giving each conf rating in that response (correct vs. inccorect) for each subject
 
@@ -425,15 +431,12 @@ cum_prob <- prob_cum[, .(cum_prob=cumsum(prob_mean), confidence, prob_se), by=.(
 ```
 
 ## 4.4.Metacognitive sensitivity
-Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see    \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(unname(auc_det['Yes']), 2, T) `) than No (`r apa(unname(auc_det['No']), 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(unname(auc_til['Tilted']), 2, T)`) than Vertical (`r apa(unname(auc_til['Vertical']), 2, T)`) responses. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being pressent than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by partcipants' confidence ratings than the correct judgments of a stimulus being vertical. 
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(unname(auc_det['Yes']), 2, T) `) than No (`r apa(unname(auc_det['No']), 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(unname(auc_til['Tilted']), 2, T)`) than Vertical (`r apa(unname(auc_til['Vertical']), 2, T)`) responses. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being pressent than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by partcipants' confidence ratings than the correct judgments of a stimulus being vertical. 
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:type2 ROC} Type 2 ROC curve for each task.", cache=TRUE, fig.width=3.2, fig.height=3.2}
 #################################### 
 # Plotting type 2 ROC
 ####################################
-color_scheme <- tibble(Detection=c("#e41a1c", "#377eb8"), 
-                       Discrimination=c("#984ea3", "#4daf4a"),
-                       Tilt=c("#999999","#f781bf"))
 
 roc_plot <- function(cur_task, df){
   
@@ -471,102 +474,7 @@ for (task in list('Detection','Discrimination','Tilt')) {
 &nbsp;
 
 ## 4.5.BOLD signal in ROIs
-```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3.2, cache=TRUE}
-#############################
-# BOLD & rt data preparation 
-#############################
-data_BOLD <- data_valid %>%
-  filter(! BOLD_rTPJ=="NaN")
-data_BOLD
 
-subj_BOLD <- unique(data_BOLD[,1])
-
-#get the mean activation at each ROI for each participants at each confidence level for each response
-data_BOLD_subj <- aggregate(data_BOLD[, 16:23], list(data_BOLD$subj_id,data_BOLD$confidence, data_BOLD$response, data_BOLD$accuracy, data_BOLD$task ), mean)
-
-data_BOLD_subj <- rename(data_BOLD_subj,c('subj_id'='Group.1', 'confidence'='Group.2', 'response'='Group.3', 'accuracy'='Group.4', 'task'='Group.5'))
-
-#get the group mean of activation for each ROI
-data_BOLD_mean <- aggregate(data_BOLD_subj[, 6:13], list(data_BOLD_subj$confidence, data_BOLD_subj$response, data_BOLD_subj$accuracy, data_BOLD_subj$task), mean)
-
-#get the se of activation for each ROI
-data_BOLD_se <- aggregate(data_BOLD_subj[, 6:13], list(data_BOLD_subj$confidence, data_BOLD_subj$response, data_BOLD_subj$accuracy, data_BOLD_subj$task), se) 
-
-data_BOLD_se <- rename(data_BOLD_se,c('rTPJ_se'='BOLD_rTPJ', 'vmPFC_se'='BOLD_vmPFC', 'pMFC_se'='BOLD_pMFC','FPm_se'='BOLD_FPm', 'FPl_se'='BOLD_FPl', 'preSMA_se'='BOLD_preSMA', 'rt_se'='rt', 'log_rt_se'='log_rt'))
-
-#combine with mean df==> ".x==mean, .y==se"
-data_BOLD_group <- inner_join(data_BOLD_mean, data_BOLD_se, by=c("Group.1", "Group.2", "Group.3", "Group.4"))
-
-#rename the colum names 
-data_BOLD_group <- rename(data_BOLD_group,c('confidence'='Group.1', 'response'='Group.2', 'accuracy'='Group.3','task'='Group.4'))
-
-BOLD_det_mean <- subset(data_BOLD_group, response=="Yes"| response=="No")
-BOLD_dis_mean <- subset(data_BOLD_group, response=="Clockwise"| response=="Anticlockwise")
-BOLD_til_mean <- subset(data_BOLD_group, response=="Tilted"| response=="Vertical")
-
-```
-
-```{r echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=3.5, fig.height=4}
-##########################
-# Plotting log_rt 
-#########################
-rt_det <- ggplot(data=BOLD_det_mean, aes(x=confidence, y=log_rt)) +
-  geom_line(aes(colour = factor(response))) +
-  geom_point(aes(color = factor(response)), size = 3) + 
-  geom_errorbar( aes(ymin = log_rt-log_rt_se, ymax = log_rt+log_rt_se, colour = factor(response)), width = 0.1)+
-  scale_color_manual(values=c("#e41a1c", "#377eb8")) +
-  labs(title="log rt Detection", x= "confidence", y="mean RT", color="Response") +
-  theme_classic() + 
-  scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + 
-  theme(legend.position=c(0.8, 0.9),  
-        legend.background = element_blank(),
-        legend.key = element_blank(),
-        legend.title = element_blank(),
-        legend.text = (element_text(size = 10)),
-        axis.text=(element_text(size=14)),
-        axis.title=(element_text(size=14,face="bold")),
-        plot.title = (element_text(color = "black", size = 14, face = "bold.italic"))) 
-rt_det
-
-rt_dis <- ggplot(data=BOLD_dis_mean, aes(x=confidence, y=log_rt)) +
-  geom_line(aes(colour = factor(response))) +
-  geom_point(aes(color = factor(response)), size = 3) + 
-  geom_errorbar( aes(ymin = log_rt-log_rt_se, ymax = log_rt+log_rt_se, colour = factor(response)), width = 0.1)+
-  scale_color_manual(values=c("#984ea3", "#4daf4a")) +
-  labs(title="log rt Discrimination", x= "confidence", y="mean RT", color="Response") +
-  theme_classic() + 
-  scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + 
-  theme(legend.position=c(0.8, 0.9),  
-        legend.background = element_blank(),
-        legend.key = element_blank(),
-        legend.title = element_blank(),
-        legend.text = (element_text(size = 10)),
-        axis.text=(element_text(size=14)),
-        axis.title=(element_text(size=14,face="bold")),
-        axis.title.y=element_blank(),
-        plot.title = (element_text(color = "black", size = 14, face = "bold.italic"))) 
-rt_dis
-
-rt_til <- ggplot(data=BOLD_til_mean, aes(x=confidence, y=log_rt)) +
-  geom_line(aes(colour = factor(response))) +
-  geom_point(aes(color = factor(response)), size = 3) + 
-  geom_errorbar( aes(ymin = log_rt-log_rt_se, ymax = log_rt+log_rt_se, colour = factor(response)), width = 0.1)+
-  scale_color_manual(values=c("#999999","#f781bf")) +
-  labs(title="log rt Tilt Recognition", x= "confidence", y="mean RT", color="Response") +
-  theme_classic() + 
-  scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + 
-  theme(legend.position=c(0.8, 0.9),  
-        legend.background = element_blank(),
-        legend.key = element_blank(),
-        legend.title = element_blank(),
-        legend.text = (element_text(size = 10)),
-        axis.text=(element_text(size=14)),
-        axis.title=(element_text(size=14,face="bold")),
-        axis.title.y=element_blank(),
-        plot.title = (element_text(color = "black", size = 14, face = "bold.italic"))) 
-rt_til
-
-```
 ## Effect of confidence on BOLD signal in ROIs
 From our data, negative linear confidence-related effects were observed in right Temporoparietal Junction (rTPJ) ($\beta$=`r apa(b_lm_rTPJ[2],2,T)`, p=`r apa(p_lm_rTPJ[2],3,T)`), Posterior Medial Frontal Cortex (pMFC)($\beta$=`r apa(b_lm_pMFC[2], 2,T)`, p=`r apa(p_lm_pMFC[2], 3,T)`), as well as polsitive linear correlation between confidence and BOLD signals in Ventromedial Prefrontal Cortex (vmPFC)($\beta$=`r apa(b_lm_vmPFC[2],2,T)`, p=`r apa(p_lm_vmPFC[2],3,T)`), Medial Frontopolar Cortex (FPm)($\beta$=`r apa(b_lm_FPm[2],2,T)`, p=`r apa(p_lm_FPm[2], 3,T)`). 
 
