@@ -4,7 +4,6 @@ author: Chudi Gong
 date: 03/07/2020
 output: pdf_document
 bibliography: references.bib
-published: true
 ---
 
 ```{r setup, include=FALSE}
@@ -17,6 +16,7 @@ library(magrittr) # readable code (for operators etc.)
 library(readr) # for reading data files (csv etc.)
 library(tidyr) # for tidying data
 library(data.table) # for data manipulation 
+library(afex)
 library(RColorBrewer) # provides color palletes for graph plotting 
 library(papaja) # apa stype for reporting data
 library(MOTE) # required package for use of 'papaja'
@@ -219,7 +219,7 @@ individual_accuracy <- individual_trials %>% filter(accuracy==1) %>%rename(corre
 
 # 4.Results
 ## 4.1.Performance across threee tasks
-```{r accuracy& d'& rt, include=FALSE, cache=TRUE}
+```{r , include=FALSE, cache=TRUE}
 #display accuracy for each task 
 task_accuracy <- individual_accuracy %>% group_by(task) %>% summarise(mean(correct)) %>% spread(key='task', value='mean(correct)')
 
@@ -309,11 +309,11 @@ t_rt_til <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TR
 
 ```
 
-Detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar. A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' (F= `r apa(F2, 2, T)`, p= `r apa(p2, 2, T)`; see Figure \ref{fig:accuracy})).
+Detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar. A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' `r apa_print(aov.d)` ; see Figure \ref{fig:accuracy})).
 
 The probability of responding Yes in detection was `r apa(resp_det$mean, 2, T)` (± `r apa(resp_det$sd, 2, T)`), and was significantly different from 0.5 (`r resp_det$apa_t`). The probability of responding CLOCKWISE was `r apa(resp_dis$mean, 2, T)` (± `r apa(resp_dis$sd, 2, T)`) and was not significantly different from 0.5 (`r resp_dis$apa_t`). For the tilt recognition task, the probability of responding TILTED was `r apa(resp_til$mean, 2, T)` ± `r apa(resp_til$sd, 2, T)`, which was not significantly different from responding VERTICAL (`r resp_til$apa_t`).
 
-Response time was faster for correct response (1st quartile= `r apa(qt_accuracy[1,1], 2, T)`, median= `r apa(qt_accuracy[2,2], 2, T)`, 3rd quartile= `r apa(qt_accuracy[3,2], 2, T)` milliseconds) than incorrect responses (1st quartile= `r apa(qt_accuracy[4,2], 2, T)`, median= `r apa(qt_accuracy[5,2], 2, T)`, 3rd quartile= `r apa(qqt_accuracy[6,2]t, 2, T)` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (Yes vs. NO, `r apa_print(t_rt_det)`) discrimination (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`) and tilt recognition (VERTICAL vs. TILTED, `r apa_print(t_rt_til)`) on response time.
+Response time was faster for correct response (1st quantile= `r qt_accuracy[1,2]`, median= `r qt_accuracy[2,2]`, 3rd quantile= `r qt_accuracy[3,2]` milliseconds) than incorrect responses (1st quantile= `r qt_accuracy[4,2]`, median= `r qt_accuracy[5,2]`, 3rd quantile= `r qt_accuracy[6,2]` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (Yes vs. NO, `r apa_print(t_rt_det)`) discrimination (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`) and tilt recognition (VERTICAL vs. TILTED, `r apa_print(t_rt_til)`) on response time.
 
 ```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
 
@@ -428,10 +428,23 @@ cum_prob <- prob_cum[, .(cum_prob=cumsum(prob_mean), confidence, prob_se), by=.(
   #add the origin(0,0) point for each task on ROC plot
   add_row(task = "Detection", response= c("Yes", "No","Yes", "No"), confidence = 7, accuracy=c(0,0,1,1), cum_prob=0, prob_se=0)%>% add_row(task = "Tilt", response= c("Tilted", "Vertical","Tilted", "Vertical"), confidence = 7, accuracy=c(0,0,1,1), cum_prob=0, prob_se=0)%>% add_row(task = "Discrimination", response= c("Clockwise", "Anticlockwise","Clockwise", "Anticlockwise"), confidence = 7, accuracy=c(0,0,1,1), cum_prob=0, prob_se=0) %>% pivot_wider(names_from = accuracy, values_from = c("cum_prob", "prob_se"))
 
+# calculating area under the curve for each response
+AUC <- as.data.frame(sapply(split(cum_prob, cum_prob$response), function(x) {
+  data.table(auc=auc(x=x$cum_prob_0, y=x$cum_prob_1, from=0))
+}))
+
+# add AUC values to responses (to appear on legend in ROC plots)
+cum_prob$response[cum_prob$response=="Vertical"] <- paste0('Vertical (AUC=',apa(AUC$Vertical.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Tilted"] <- paste0('Vertical (AUC=',apa(AUC$Tilted.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Yes"] <- paste0('Vertical (AUC=',apa(AUC$Yes.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="No"] <- paste0('Vertical (AUC=',apa(AUC$No.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Clockwise"] <- paste0('Vertical (AUC=',apa(AUC$Clockwise.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Anticlockwise"] <- paste0('Vertical (AUC=',apa(AUC$Vertical.auc, 2, T), ')')
+
 ```
 
 ## 4.4.Metacognitive sensitivity
-Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(unname(auc_det['Yes']), 2, T) `) than No (`r apa(unname(auc_det['No']), 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(unname(auc_til['Tilted']), 2, T)`) than Vertical (`r apa(unname(auc_til['Vertical']), 2, T)`) responses. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being pressent than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by partcipants' confidence ratings than the correct judgments of a stimulus being vertical. 
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(AUC$Yes.auc, 2, T) `) than No (`r apa(AUC$No.auc, 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(AUC$Tilted.auc, 2, T)`) than Vertical (`r apa(AUC$Vertical.auc, 2, T)`) responses where as AUC is similar between the two responses in discrimination task. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being present than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by participants' confidence ratings than the correct judgments of a stimulus being vertical. 
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:type2 ROC} Type 2 ROC curve for each task.", cache=TRUE, fig.width=3.2, fig.height=3.2}
 #################################### 
@@ -467,19 +480,9 @@ for (task in list('Detection','Discrimination','Tilt')) {
     roc_plot(task,cum_prob)
   }
 
+
 ```
-
 &nbsp;
-
-&nbsp;
-
-## 4.5.BOLD signal in ROIs
-
-## Effect of confidence on BOLD signal in ROIs
-From our data, negative linear confidence-related effects were observed in right Temporoparietal Junction (rTPJ) ($\beta$=`r apa(b_lm_rTPJ[2],2,T)`, p=`r apa(p_lm_rTPJ[2],3,T)`), Posterior Medial Frontal Cortex (pMFC)($\beta$=`r apa(b_lm_pMFC[2], 2,T)`, p=`r apa(p_lm_pMFC[2], 3,T)`), as well as polsitive linear correlation between confidence and BOLD signals in Ventromedial Prefrontal Cortex (vmPFC)($\beta$=`r apa(b_lm_vmPFC[2],2,T)`, p=`r apa(p_lm_vmPFC[2],3,T)`), Medial Frontopolar Cortex (FPm)($\beta$=`r apa(b_lm_FPm[2],2,T)`, p=`r apa(p_lm_FPm[2], 3,T)`). 
-
-To investigate whether linear effects of confidence on BOLD signal were influenced by the type of task (Detection vs. Discrimination vs. Tilt recognition) and/or reponse (Yes vs. NO; Clockwise vs. Anticlockwise; Vertical vs. Tilted), linear models with interactions were tested. The effects of confidence failed to show a significant difference between three tasks in all ROIs (all p values > 0.23). No sognificant effect was observed between Yes and No response in detection (all p values > 0.11), between Clockwise and Anticlockwise responses in discrimination (all p values > 0.33) or between Vertical and Tilted responses in tilt recognition (all p values > 0.14).
-
 
 ```{r linear effects, echo=FALSE, results = FALSE, message=FALSE, warning=FALSE, fig.width=2.5, fig.height=3}
 #########################################################
@@ -495,14 +498,26 @@ beta_subj <- dt_subj[, .(beta=(lm(BOLD~confidence)$coef[2])), by=.(subj_id, task
 dt_group <- data.table(beta_subj)
 
 # linear effect of confidence on each ROI
-beta <- dt_group[, .(beta_group=mean(beta)), by=ROI]
+beta <- dt_group[, .(beta_group=mean(beta), beta_sd=sd(beta)), by=ROI]
+
+lm_ROI <- function(ROI, df){
+  ttest <- (rnorm(no_subj, mean = df$beta_group[df$ROI==ROI], sd = df$beta_sd[df$ROI==ROI]))
+  apa_t <- apa_print(t.test(ttest, mu = 0.5))
+  return(apa_t)
+}
 
 # compare slop between different tasks for each ROI
 beta_task <- dt_group[, .(p_task=(summary(aov(beta~task))[[1]][["Pr(>F)"]][[1]])), by=ROI]
 
 # compare slope between different responses within each task for each ROI
-beta_response <- dt_group[, .(p_response=(summary(aov(beta~response))[[1]][["Pr(>F)"]][[1]])), by=.(task, ROI)]
+beta_resp <- dt_group[, .(p_response=(summary(aov(beta~response))[[1]][["Pr(>F)"]][[1]])), by=.(task, ROI)] 
 
 ```
+## 4.5.BOLD signal in ROIs
+
+## Effect of confidence on BOLD signal in ROIs
+From our data, negative linear confidence-related effects were observed in right Temporoparietal Junction (rTPJ) ($\beta$=`r apa(beta$beta_group[beta$ROI=='rTPJ'],2,T)`, `r lm_ROI('rTPJ', beta)`), Posterior Medial Frontal Cortex (pMFC)($\beta$=`r apa(beta$beta_group[beta$ROI=='pMFC'],2,T)`, `r lm_ROI('pMFC', beta)`), as well as positive linear correlation between confidence and BOLD signals in Ventromedial Prefrontal Cortex (vmPFC)($\beta$=`r apa(beta$beta_group[beta$ROI=='vmPFC'],2,T)`, `r lm_ROI('vmPFC', beta)`), Medial Frontopolar Cortex (FPm)($\beta$=`r apa(beta$beta_group[beta$ROI=='FPm'],2,T)`, `r lm_ROI('FPm', beta)`) and Lateral Frontopolar Cortex (FPl)($\beta$=`r apa(beta$beta_group[beta$ROI=='FPl'],2,T)`, `r lm_ROI('FPl', beta)`). 
+
+To investigate whether linear effects of confidence on BOLD signal were influenced by the type of task (Detection vs. Discrimination vs. Tilt recognition) and/or response (Yes vs. NO; Clockwise vs. Anticlockwise; Vertical vs. Tilted), linear models with interactions were tested. The effects of confidence failed to show a significant difference between three tasks in all ROIs (all p values > 0.32). Significant effects of response type were observed in the FPl region for both detection ` r apa(beta_resp$p_response[beta_resp$task=='Detection'&beta_resp$ROI=='FPl'], 2, T)` and discrimination `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='FPl'], 2, T)` as well as a significant difference between CLOCKWISE and ANTICLOCKWISE response in rTPJ `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='rTPJ'], 2, T)`. No significant effect between different responses was observed for three tasks in other regions (p values > 0.13).
 
 ## Reference
