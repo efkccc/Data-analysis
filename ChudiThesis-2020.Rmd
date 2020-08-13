@@ -238,9 +238,9 @@ trials <- data_valid %>%
   inner_join(sti_trials, by = c ("subj_id","task"))
 
 # transform trials into data table and include only positive responses for three tasks
-dt  <- data.table(trials)%>% filter(response=="Yes"| response=="Tilted"| response=="Clockwise")
+dt_trials  <- data.table(trials)%>% filter(response=="Yes"| response=="Tilted"| response=="Clockwise")
 # calculate the z value for hit and fa 
-rate_subj <- dt[, .(rate=no_trials/sti_trials), by=.(subj_id,response, accuracy)] %>% mutate(z_rate=qnorm(rate))  
+rate_subj <- dt_trials[, .(rate=no_trials/sti_trials), by=.(subj_id,response, accuracy)] %>% mutate(z_rate=qnorm(rate))  
 
 # drop the rate column (for later 'spread' function to work properly)
 rate_subj$rate <- NULL
@@ -291,15 +291,17 @@ resp_til <-resp_bias('Tilted', response)
 #####################
 #calculating rt
 #####################
-rt <- data_valid %>%
-  group_by(subj_id, task, response, accuracy) %>%
-  summarise(median(rt)) %>%
-  rename("median_rt"="median(rt)")
-
+rt <- data_valid %>% group_by(subj_id, task, response, accuracy) %>% summarise(median(rt)) %>%rename("median_rt"="median(rt)")
+# transfrom into data.table
 dt <- data.table(data_valid)
+
+# get individual median rt
 subj_rt <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, response, accuracy)]
+
+# get group median rt
 rt <- subj_rt[, .(median_rt=median(median_rt)), by=.(task, response, accuracy)]
 
+# get quantiles of rt
 qt_accuracy <- rt[, .(quantile(median_rt, c(.25,.5,.75))), by=accuracy]
 
 #t test comparing log_rt for detection, discrimination and tilt 
@@ -318,8 +320,7 @@ Response time was faster for correct response (1st quantile= `r qt_accuracy[1,2]
 ```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
 
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
-data <- individual_accuracy
-ggplot(data, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs (y="mean accuracy")+ theme_classic() +
+ggplot(individual_accuracy, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs (y="mean accuracy")+ theme_classic() +
    geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 ```
 
@@ -510,7 +511,41 @@ lm_ROI <- function(ROI, df){
 beta_task <- dt_group[, .(p_task=(summary(aov(beta~task))[[1]][["Pr(>F)"]][[1]])), by=ROI]
 
 # compare slope between different responses within each task for each ROI
-beta_resp <- dt_group[, .(p_response=(summary(aov(beta~response))[[1]][["Pr(>F)"]][[1]])), by=.(task, ROI)] 
+beta_resp <- dt_group[, .(p_response=(summary(aov(beta~response))[[1]][["Pr(>F)"]][[1]])), by=.(task, ROI)]
+
+
+################
+# scatter plot
+#################
+rt_test <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, stimulus)]%>%spread(key = 'stimulus', value = 'median_rt') %>%rename(present="1", absent="0") %>% mutate(median_rt=present-absent) %>%subset(select=c(subj_id, task, median_rt))
+
+#count no. of correct trials for each task for each participant
+test <- data_valid %>% 
+  #group by ID, type of task and accuracy
+  group_by(subj_id, task, accuracy, stimulus) %>% 
+  #count number of correct/incorrect/NAH trials 
+  summarize(no_trials=(count = n())) %>%
+  #combine with the total data frame
+  inner_join(sti_trials, by = c ("subj_id","task")) %>%
+  mutate(correct = no_trials / sti_trials) %>%
+  filter(accuracy==1) %>%
+  subset(select=c(subj_id, task, stimulus, correct)) %>%
+  spread(key = 'stimulus', value = 'correct') %>%
+  rename(present="1", absent="0") %>%
+  mutate(acc=present-absent) %>%
+  subset(select=c(subj_id, task, acc)) %>%
+  inner_join(rt_test, by = c ("subj_id", "task"))
+
+test_plot <- function(cur_task, df){
+  df<- df%>%filter(task==cur_task)
+  plot <- ggplot(data=df, aes(x=median_rt, y=acc)) + geom_point()+ labs(title=paste('RT and Accuracy',cur_task), x= "rt(present-absent)", y="accuracy(present-absent)")
+  print(plot)
+}
+
+for (task in list('Detection','Discrimination','Tilt')){
+    print(task)
+    test_plot(task, test)
+}
 
 ```
 ## 4.5.BOLD signal in ROIs
