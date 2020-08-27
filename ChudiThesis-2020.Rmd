@@ -273,6 +273,13 @@ response <- data_valid %>%
   inner_join(total_trials, by = c ("task","subj_id")) %>%
   mutate(prob = no_trials / totaltrials)
 
+# calculate the response bias for each individual
+subj_bias <- subset(response, select= c(subj_id, task, response, prob)) %>%
+  spread(response, prob) %>% rename("Zero"="0", "One"="1") %>% mutate(bias=One-Zero) %>% subset(select= c(subj_id, task, bias)) %>% spread(task,bias)
+
+# test if participants who are more likely to respond Yes also are more likely to respond Tilted
+bias_lm <- apa_print(lm(data = subj_bias, Detection~Tilt))
+
 # create a function to get the mean response and compare with 0.5
 resp_bias <- function(resp, df){
   df <- df %>% filter(response==resp)
@@ -291,8 +298,9 @@ resp_til <-resp_bias('Tilted', response)
 #####################
 #calculating rt
 #####################
-rt <- data_valid %>% group_by(subj_id, task, response, accuracy) %>% summarise(median(rt)) %>%rename("median_rt"="median(rt)")
-# transfrom into data.table
+# rt <- data_valid %>% group_by(subj_id, task, response, accuracy) %>% summarise(median(rt)) %>%rename("median_rt"="median(rt)")
+
+# transform into data.table
 dt <- data.table(data_valid)
 
 # get individual median rt
@@ -412,12 +420,25 @@ conf <- data_valid %>%
   group_by(subj_id, task, accuracy, response, confidence) %>%
   summarise(conf_trials=(count=n())) %>%
   inner_join(acc, by = c ("subj_id","task", "response", "accuracy")) %>%
+  # calculate the prob of giving each confidence rating in that response (correct vs. inccorect) for each subject
   mutate(prob=conf_trials/acc_trials)
 
-# combine with response dt (with no. trials for each response) + calculate the prob of giving each conf rating in that response (correct vs. inccorect) for each subject
+# calculate individual AUC
+conf_dt <- data.table(conf)
+cum_prob_subj <- conf_dt[, .(cum_prob=cumsum(prob), prob_se=(se(prob)),confidence), by=.(subj_id, task, response, accuracy)]
 
-# calculate the mean prob &se for the group
-prob <- data.table(conf)
+sub_02 <- conf %>% filter(subj_id=="02DiSt")
+test <- by(sub_02, list(sub_02$accuracy, sub_02$response), function(x){
+  unique(sub_02$confidence)
+})
+
+
+test <- by(conf, list(conf$subj_id, conf$accuracy, conf$response), function(x){
+  unique(conf$confidence)
+})
+
+# calculate the mean prob & se for the group
+prob <- data.table(conf) 
 prob_response <- prob[, .(prob_mean=(sum(prob)/no_subj), prob_se=(se(prob))), by=.(task, response, accuracy, confidence)] 
 
 #sort the df order
@@ -436,22 +457,21 @@ AUC <- as.data.frame(sapply(split(cum_prob, cum_prob$response), function(x) {
 
 # add AUC values to responses (to appear on legend in ROC plots)
 cum_prob$response[cum_prob$response=="Vertical"] <- paste0('Vertical (AUC=',apa(AUC$Vertical.auc, 2, T), ')')
-cum_prob$response[cum_prob$response=="Tilted"] <- paste0('Vertical (AUC=',apa(AUC$Tilted.auc, 2, T), ')')
-cum_prob$response[cum_prob$response=="Yes"] <- paste0('Vertical (AUC=',apa(AUC$Yes.auc, 2, T), ')')
-cum_prob$response[cum_prob$response=="No"] <- paste0('Vertical (AUC=',apa(AUC$No.auc, 2, T), ')')
-cum_prob$response[cum_prob$response=="Clockwise"] <- paste0('Vertical (AUC=',apa(AUC$Clockwise.auc, 2, T), ')')
-cum_prob$response[cum_prob$response=="Anticlockwise"] <- paste0('Vertical (AUC=',apa(AUC$Vertical.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Tilted"] <- paste0('Tilted (AUC=',apa(AUC$Tilted.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Yes"] <- paste0('Yes (AUC=',apa(AUC$Yes.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="No"] <- paste0('No (AUC=',apa(AUC$No.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Clockwise"] <- paste0('Clockwise (AUC=',apa(AUC$Clockwise.auc, 2, T), ')')
+cum_prob$response[cum_prob$response=="Anticlockwise"] <- paste0('Anticlockwise (AUC=',apa(AUC$Vertical.auc, 2, T), ')')
 
 ```
 
 ## 4.4.Metacognitive sensitivity
-Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(AUC$Yes.auc, 2, T) `) than No (`r apa(AUC$No.auc, 2, T)`) response. Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(AUC$Tilted.auc, 2, T)`) than Vertical (`r apa(AUC$Vertical.auc, 2, T)`) responses where as AUC is similar between the two responses in discrimination task. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being present than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by participants' confidence ratings than the correct judgments of a stimulus being vertical. 
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(AUC$Yes.auc, 2, T) `) than No (`r apa(AUC$No.auc, 2, T)`) response (T RESULTS). Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(AUC$Tilted.auc, 2, T)`) than Vertical (`r apa(AUC$Vertical.auc, 2, T)`) responses where as AUC is similar between the two responses in discrimination task. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being present than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by participants' confidence ratings than the correct judgments of a stimulus being vertical. 
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:type2 ROC} Type 2 ROC curve for each task.", cache=TRUE, fig.width=3.2, fig.height=3.2}
 #################################### 
 # Plotting type 2 ROC
 ####################################
-
 roc_plot <- function(cur_task, df){
   
   # only include data for current task
@@ -536,6 +556,10 @@ test <- data_valid %>%
   subset(select=c(subj_id, task, acc)) %>%
   inner_join(rt_test, by = c ("subj_id", "task"))
 
+data1 <- test %>% filter(task=="Discrimination")
+rt_model <- lm(data = data1, acc~median_rt)
+
+
 test_plot <- function(cur_task, df){
   df<- df%>%filter(task==cur_task)
   plot <- ggplot(data=df, aes(x=median_rt, y=acc)) + geom_point()+ labs(title=paste('RT and Accuracy',cur_task), x= "rt(present-absent)", y="accuracy(present-absent)")
@@ -548,9 +572,7 @@ for (task in list('Detection','Discrimination','Tilt')){
 }
 
 ```
-## 4.5.BOLD signal in ROIs
-
-## Effect of confidence on BOLD signal in ROIs
+## 4.5.Effect of confidence on BOLD signal in ROIs
 From our data, negative linear confidence-related effects were observed in right Temporoparietal Junction (rTPJ) ($\beta$=`r apa(beta$beta_group[beta$ROI=='rTPJ'],2,T)`, `r lm_ROI('rTPJ', beta)`), Posterior Medial Frontal Cortex (pMFC)($\beta$=`r apa(beta$beta_group[beta$ROI=='pMFC'],2,T)`, `r lm_ROI('pMFC', beta)`), as well as positive linear correlation between confidence and BOLD signals in Ventromedial Prefrontal Cortex (vmPFC)($\beta$=`r apa(beta$beta_group[beta$ROI=='vmPFC'],2,T)`, `r lm_ROI('vmPFC', beta)`), Medial Frontopolar Cortex (FPm)($\beta$=`r apa(beta$beta_group[beta$ROI=='FPm'],2,T)`, `r lm_ROI('FPm', beta)`) and Lateral Frontopolar Cortex (FPl)($\beta$=`r apa(beta$beta_group[beta$ROI=='FPl'],2,T)`, `r lm_ROI('FPl', beta)`). 
 
 To investigate whether linear effects of confidence on BOLD signal were influenced by the type of task (Detection vs. Discrimination vs. Tilt recognition) and/or response (Yes vs. NO; Clockwise vs. Anticlockwise; Vertical vs. Tilted), linear models with interactions were tested. The effects of confidence failed to show a significant difference between three tasks in all ROIs (all p values > 0.32). Significant effects of response type were observed in the FPl region for both detection ` r apa(beta_resp$p_response[beta_resp$task=='Detection'&beta_resp$ROI=='FPl'], 2, T)` and discrimination `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='FPl'], 2, T)` as well as a significant difference between CLOCKWISE and ANTICLOCKWISE response in rTPJ `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='rTPJ'], 2, T)`. No significant effect between different responses was observed for three tasks in other regions (p values > 0.13).
