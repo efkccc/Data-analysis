@@ -24,6 +24,7 @@ library(MESS) # statistical functions used in conjunstion with papaja
 library(lmerTest) # for mixed effects model fit
 library(broom.mixed) # to tidy model fit coefficients
 getwd()
+se <- function(x) sqrt(var(x)/length(x)) 
 ```
 # 1.Abstract
 
@@ -164,6 +165,9 @@ data_valid <- data %>%
   mutate(log_rt=log(rt))
 data_valid
 
+# save a version of the df with raw response&stimulus code (i.e. 1 and 0)
+data_valid_raw <- data_valid
+
 # change response codes
 data_valid$response[(data_valid$response=="0") &
                                    data_valid$task=='Detection'] <- "No"
@@ -172,7 +176,7 @@ data_valid$response[(data_valid$response=="1") &
                                    data_valid$task=='Detection'] <- "Yes"
 
 data_valid$response[(data_valid$response=="0") &
-                                   data_valid$task=='Discrimination'] <- "Anticlockwise"
+                                   data_valid$task=='Discrimination'] <-"Anticlockwise"
 
 data_valid$response[(data_valid$response=="1") &
                                    data_valid$task=='Discrimination'] <- "Clockwise"
@@ -183,7 +187,10 @@ data_valid$response[(data_valid$response=="0") &
 data_valid$response[(data_valid$response=="1") &
                                    data_valid$task=='Tilt'] <- "Tilted"
 
-# create a tidy version of data file
+# transform into data.table
+dt <- data.table(data_valid)
+
+# create a tidy version of data file (BOLD signal as a single vector, ROIs as grouping variable)
 data_tidy <- rename(data_valid, c('rTPJ'='BOLD_rTPJ', 'vmPFC'='BOLD_vmPFC', 'FPl'='BOLD_FPl', 'FPm'='BOLD_FPm', 'pMFC'='BOLD_pMFC'))
 data_tidy <- gather(data_tidy, "ROI", "BOLD", 16:21)%>% filter(!BOLD=="NaN")
 
@@ -200,7 +207,6 @@ total_trials <- data_valid %>% group_by(subj_id, task) %>% summarise(totaltrials
 
 #get the number of trials for each participants where the stimulus shown is 1 (i.e.Present, Clockwise & Tilted)
 sti_trials <- data_valid %>% group_by(subj_id, task) %>%filter(stimulus=="1")%>%summarise(sti_trials=(count=n()))
-
 
 #count no. of correct trials for each task for each participant
 individual_trials <- data_valid %>% 
@@ -264,7 +270,7 @@ aov.d <- aov_ez(data=d_subj,
 ###########################
 # calculating response bias 
 ###########################
-response <- data_valid %>% 
+response <- data_valid_raw %>% 
   #group by ID, type of task and accuracy
   group_by(subj_id,task, response) %>% 
   #count number of correct/incorrect/NAH trials 
@@ -278,9 +284,10 @@ subj_bias <- subset(response, select= c(subj_id, task, response, prob)) %>%
   spread(response, prob) %>% rename("Zero"="0", "One"="1") %>% mutate(bias=One-Zero) %>% subset(select= c(subj_id, task, bias)) %>% spread(task,bias)
 
 # test if participants who are more likely to respond Yes also are more likely to respond Tilted
-bias_lm <- apa_print(lm(data = subj_bias, Detection~Tilt))
+bias_lm <- apa_print(lm(data = subj_bias, Detection~Tilt)) # the correlation was not significant
 
-# create a function to get the mean response and compare with 0.5
+# create a function to get the mean response probability +sd and do a t test to compare with 0.5
+
 resp_bias <- function(resp, df){
   df <- df %>% filter(response==resp)
   resp_mean <- mean(df$prob)
@@ -291,48 +298,53 @@ resp_bias <- function(resp, df){
   return(my_list)
 }
 
-resp_det <- resp_bias('Yes', response)
+resp_yes <- resp_bias('Yes', response)
+resp_no <- resp_bias('No', response)
 resp_dis <- resp_bias('Clockwise', response)
 resp_til <-resp_bias('Tilted', response)
+resp_ver <-resp_bias('Vertical', response)
 
 #####################
 #calculating rt
 #####################
-# rt <- data_valid %>% group_by(subj_id, task, response, accuracy) %>% summarise(median(rt)) %>%rename("median_rt"="median(rt)")
-
-# transform into data.table
-dt <- data.table(data_valid)
-
-# get individual median rt
-subj_rt <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, response, accuracy)]
+# get individual median rt, mean rt, and mean log rt
+subj_rt <- dt[, .(median_rt=median(rt), mean_rt= mean(rt), mean_log_rt=mean(log_rt)), by=.(subj_id,task, response)]
 
 # get group median rt
-rt <- subj_rt[, .(median_rt=median(median_rt)), by=.(task, response, accuracy)]
+rt <- subj_rt[, .(median_rt=median(median_rt), mean_log_rt= mean(mean_log_rt)), by=.(task, response)]
 
 # get quantiles of rt
 qt_accuracy <- rt[, .(quantile(median_rt, c(.25,.5,.75))), by=accuracy]
 
-#t test comparing log_rt for detection, discrimination and tilt 
-t_rt_det <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE, data=data_det)
-t_rt_dis <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=data_dis)
-t_rt_til <-t.test(log_rt~response, mu=0, alt="two.sided", conf=0.95,var.equal=TRUE,data=data_til)
+#t test comparing log_rt for correct and incorrect response
+t_rt_acc <- t.test (log_rt~accuracy, mu=0, paired=TRUE, data=subj_rt)
+
+#t test comparing the effect of response type on log_rt for detection, discrimination and tilt 
+t_rt_det <-t.test(mean_log_rt~response, mu=0, paired=TRUE, data=(subj_rt%>% filter(task=='Detection')))
+t_rt_dis <-t.test(mean_log_rt~response, mu=0, paired=TRUE, data=(subj_rt%>% filter(task=='Discrimination')))
+t_rt_til <-t.test(mean_log_rt~response, mu=0, paired=TRUE, data=(subj_rt%>% filter(task=='Tilt')))
+
+# get the group level log rt for each task
+mean_log_rt <- subj_rt[,.(mean=mean(log_rt)), by=.(task,response)]
 
 ```
 
-Detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar. A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' `r apa_print(aov.d)` ; see Figure \ref{fig:accuracy})).
+The performance across three tasks, detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar, where accuracy was computed as the proportion of correct trials out of total number of trials and d’ was calculated using the following formula:  d’ = z(FA) – z(H). A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' `r apa_print(aov.d)` ; see Figure \ref{fig:accuracy})), which reflected a good control over the difficulty level across the three tasks. 
 
-The probability of responding Yes in detection was `r apa(resp_det$mean, 2, T)` (± `r apa(resp_det$sd, 2, T)`), and was significantly different from 0.5 (`r resp_det$apa_t`). The probability of responding CLOCKWISE was `r apa(resp_dis$mean, 2, T)` (± `r apa(resp_dis$sd, 2, T)`) and was not significantly different from 0.5 (`r resp_dis$apa_t`). For the tilt recognition task, the probability of responding TILTED was `r apa(resp_til$mean, 2, T)` ± `r apa(resp_til$sd, 2, T)`, which was not significantly different from responding VERTICAL (`r resp_til$apa_t`).
+## 4.2.Response Bias
+To test whether participants were biased towards certain response, we computed the probability of giving each response in three tasks. The probability of responding Yes in detection was `r apa(resp_yes$mean, 2, T)` (± `r apa(resp_yes$sd, 2, T)`), and was significantly different from 0.5 (`r resp_yes$apa_t`), showing that participants are more likely to give NO response than YES response in the detection task. The probability of responding CLOCKWISE was `r apa(resp_dis$mean, 2, T)` (± `r apa(resp_dis$sd, 2, T)`) and was not significantly different from 0.5 (`r resp_dis$apa_t`). For the tilt recognition task, the probability of responding TILTED was `r apa(resp_til$mean, 2, T)` ± `r apa(resp_til$sd, 2, T)`, which was significantly different from responding VERTICAL `r apa(resp_ver$mean, 2, T)` ± `r apa(resp_ver$sd, 2, T)` (`r resp_til$apa_t`).
 
-Response time was faster for correct response (1st quantile= `r qt_accuracy[1,2]`, median= `r qt_accuracy[2,2]`, 3rd quantile= `r qt_accuracy[3,2]` milliseconds) than incorrect responses (1st quantile= `r qt_accuracy[4,2]`, median= `r qt_accuracy[5,2]`, 3rd quantile= `r qt_accuracy[6,2]` milliseconds). A one-way analysis of variance failed to detect a significant overall effect of responses type in detection (Yes vs. NO, `r apa_print(t_rt_det)`) discrimination (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`) and tilt recognition (VERTICAL vs. TILTED, `r apa_print(t_rt_til)`) on response time.
+Furthermore,given the existence of significant response bias in both detection and tilt recognition task, statistical test was conducted to assess whether individuals who are more likely to give NO responses in detection are also more likely to give VERTICAL response in tilt recognition. A linear model was fitted to the probabilities of giving these response within each individual and this model was not significant (`r bias_lm`). 
 
 ```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
-
 number_ticks <- function(n) {function(limits) pretty(limits, n)}
 ggplot(individual_accuracy, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs (y="mean accuracy")+ theme_classic() +
    geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 ```
+## 4.3.Response time
+Consistent with previous studies, response time was faster for correct response (1st quantile= `r qt_accuracy[1,2]`, median= `r qt_accuracy[2,2]`, 3rd quantile= `r qt_accuracy[3,2]` milliseconds) than incorrect responses (1st quantile= `r qt_accuracy[4,2]`, median= `r qt_accuracy[5,2]`, 3rd quantile= `r qt_accuracy[6,2]` milliseconds) according to a paired t test on the log reaction time(`r (apa_print(t_rt_acc))$full_result)`). A one-way analysis of variance failed to detect a significant overall effect of responses type on log reaction time in detection task (YES vs. NO, `r apa_print(t_rt_det)`) and discrimination task (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`). _However, the paired sample t test revealed that in tilt recognition, the type of response (VERTICAL vs. TILTED) had significant impact on the log transformed reaction time `r (apa_print(t_rt_til))$full_result)`) such that participants are faster on responding TILTED than VERTICAL._
 
-```{r, log_rt_figure, echo=FALSE, message=FALSE,fig.width=3.5, fig.height=3.2, cache=TRUE}
+```{r, log_rt_figure, echo=FALSE, message=FALSE, fig.cap="\\label{fig:log_rt} Log transformed reaction time across three tasks", cache=TRUE}
 
 subj_log_rt <- dt[, .(mean_log=mean(log_rt)), by=.(subj_id, task, response, confidence)]
 log_rt <- subj_log_rt[, .(log_rt=mean(mean_log), log_rt_se=se(mean_log)), by=.(task, response, confidence)]
@@ -365,41 +377,80 @@ rt_plot <- function(cur_task, df){
 for (task in list('Detection','Discrimination','Tilt')) {
     print(task)
     rt_plot(task,log_rt)
-  }
+}
+```
+
+```{r, log_rt_figure, echo=FALSE, message=FALSE, fig.cap="\\label{fig:rt_accuracy tradeoff} ", cache=TRUE}
+########################################
+# speed accuracy trade-off scatter plot
+########################################
+rt_test <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, response)]%>%spread(key = 'response', value = 'median_rt') %>%rename(present="1", absent="0") %>% mutate(median_rt=present-absent) %>%subset(select=c(subj_id, task, median_rt))
+
+rt_acc <- data_valid_raw %>% 
+  #group by ID, type of task and accuracy
+  group_by(subj_id,task, accuracy, response) %>% 
+  #count number of correct/incorrect/NAH trials 
+  summarize(acc_resp_trials=(count = n())) %>%
+  #combine with the total data frame
+  inner_join(response, by = c ("subj_id","task", "response")) %>%
+  mutate(correct = acc_resp_trials / no_trials) %>%
+  filter(accuracy==1) %>%
+  subset(select=c(subj_id, task, response, correct)) %>%
+  spread(key = 'response', value = 'correct') %>%
+  rename(present="1", absent="0") %>%
+  mutate(acc=present-absent) %>%
+  subset(select=c(subj_id, task, acc)) %>%
+  inner_join(rt_test, by = c ("subj_id", "task"))
+
+rt_accuracy_plot <- ggplot(data=rt_acc, aes(x=median_rt, y=acc)) + 
+    geom_point(alpha=0.4, size=4)+
+    geom_smooth(method=lm, se=FALSE, linetype="dashed",
+             color="darkred")+
+    theme_classic()+
+    labs(title= "Reaction time and accuracy", x= "reaction time difference between responses", y="accuracy difference between responses")+
+  facet_wrap(~task)
+
+print(rt_accuracy_plot)
+
+rt_acc_det <- apa_print(lm(data = (rt_acc %>% filter(task=='Detection')), acc~median_rt))
+rt_acc_dis <- apa_print(lm(data = (rt_acc %>% filter(task=='Discrimination')), acc~median_rt))
+rt_acc_til <- apa_print(lm(data = (rt_acc %>% filter(task=='Tilt')), acc~median_rt))
 
 ```
 
+To explore the relationship between reaction time and accuracy in each task, further linear regression analysis was carried out. Namely, we are interested in whether participants who took longer to give one response (YES, CLOCKWISE and TILTED) than the opposite (NO, ANTICLOCKWISE and VERTICAL) are also more likely to be correct in those choices. We computed the accuracy difference and response time difference between each response pairs in three task and tested the linear relationship between them, the results from which reveals a significant correlation in discrimination `r rt_acc_dis` but not in detection `r rt_acc_det` and tilt recognition `r rt_acc_til` (see Figure \ref{fig:rt_accuracy tradeoff}). 
+
 ```{r include=FALSE, cache=TRUE}
-#mean confidence frequency 
-confidence_distribution <- data_valid %>%
-  group_by(task,confidence,response) %>%
-  summarise(no_trials=(count=n())) %>%
-  mutate(frequency = no_trials / no_subj)
-confidence_distribution
+#confidence frequency for each task&response for each subject
+subj_conf <- data_valid %>%
+  group_by(subj_id, task,confidence,response) %>%
+  summarise(conf_trials=(count=n())) %>%
+  as.data.table()
+
+# group-level confidence frequencies
+confidence_distribution <- subj_conf[, .(frequency=mean(conf_trials), se=se(conf_trials)), by=.(task, response, confidence)]
 
 t_conf_det <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = data_det)
 t_conf_til <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = data_til)
-
 ```
 &nbsp;
 
 ## 4.2.Confidence distributions
-Within detection, a significant difference in mean confidence was observed between Yes (target present) and NO (target absent) responses (see Fig.4 above) (`r apa_print(t_conf_det)`) , such that participants are more confident in their Yes responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and Vertical response (`r apa_print(t_conf_til)`; see Figure \ref{fig:confidence}).
+Within detection, a significant difference in mean confidence was observed between Yes (target present) and NO (target absent) responses (see Fig.4 above) (`r apa_print(t_conf_det)`) , such that participants are more confident in their Yes responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and VERTICAL response (`r apa_print(t_conf_til)`; see Figure \ref{fig:confidence}). 
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:confidence} Confidence distributions across three tasks and responses. Error bars represent the standard error of the mean.", cache=TRUE}
 
-#SE calculation  (the standard deviation divided by the square root of the sample size)
-#se <- function(x) sqrt(var(x)/length(x))
-pd <- position_dodge(0.5) # move them .05 to the left and right
-ci <- se(confidence_distribution$frequency)
-         
 #plot the frequency of confidence ratings for all three tasks
 task_labs = c('Detection','Discrimination','Tilt Recognition')
 names(task_labs) = c('Detection','Discrimination','Tilt')
 cbPalette <- c("#e41a1c", "#377eb8","#4daf4a", "#984ea3","#999999","#f781bf")
 
 confidence_det <- ggplot(confidence_distribution, mapping = aes(x = confidence, y= frequency, fill= response)) +
-  geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+ scale_fill_manual(values=cbPalette) + theme_classic() + labs(title="Confidence by task and response", y="frequency")+ scale_x_continuous(breaks=number_ticks(6)) +ylim(0,30)+
+  geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+
+  geom_errorbar(aes(ymin=frequency-se, ymax=frequency+se), position=position_dodge(.7), width=0.2)+ 
+  scale_fill_manual(values=cbPalette) + 
+  theme_classic() + 
+  labs(title="Confidence distribution by task and response", y="frequency")+ scale_x_continuous(breaks=number_ticks(6)) +ylim(0,30)+
   theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
 confidence_det+facet_grid(rows=vars(task),
                           labeller = labeller(task=task_labs))
@@ -410,7 +461,7 @@ confidence_det+facet_grid(rows=vars(task),
 &nbsp;
 
 ``` {r Type 2 ROC, echo=FALSE, message=FALSE, }
-#get the total number of trials for correct vs incoccrect for each response respectively 
+#get the total number of trials for correct vs incocrrect for each response respectively 
 acc <- data_valid %>%
   group_by(subj_id, task, accuracy, response) %>%
   summarise(acc_trials=(count=n())) 
@@ -421,39 +472,37 @@ conf <- data_valid %>%
   summarise(conf_trials=(count=n())) %>%
   inner_join(acc, by = c ("subj_id","task", "response", "accuracy")) %>%
   # calculate the prob of giving each confidence rating in that response (correct vs. inccorect) for each subject
-  mutate(prob=conf_trials/acc_trials)
+  mutate(prob=conf_trials/acc_trials) 
 
-# calculate individual AUC
-conf_dt <- data.table(conf)
-cum_prob_subj <- conf_dt[, .(cum_prob=cumsum(prob), prob_se=(se(prob)),confidence), by=.(subj_id, task, response, accuracy)]
+#calculate individual AUC
+# filling in the missing values for each combination (task, accuracy, response and confidence)
+conf_subj <- conf %>% ungroup %>% complete(subj_id, accuracy, response, confidence = 1:6, fill = list(conf_trials = 0, prob = 0)) %>% group_by(subj_id, task, accuracy, response, confidence)
 
-sub_02 <- conf %>% filter(subj_id=="02DiSt")
-test <- by(sub_02, list(sub_02$accuracy, sub_02$response), function(x){
-  unique(sub_02$confidence)
-})
+conf_subj <- as.data.table(conf_subj)
 
+# sort the df with descending confidence level
+conf_subj <- conf_subj[order(-confidence),]
 
-test <- by(conf, list(conf$subj_id, conf$accuracy, conf$response), function(x){
-  unique(conf$confidence)
-})
+# get the cumulative prob for each task & response & accuracy for each subject 
+cum_prob_subj <- conf_subj[, .(cum_prob=cumsum(prob), confidence), by=.(subj_id, response, accuracy)] %>% spread(key=accuracy, value=cum_prob)%>% rename("correct"="1", "incorrect"="0") %>% mutate(task = case_when(response == "Clockwise" ~ "Discrimination", 
+                                response == "Anticlockwise" ~ "Discrimination",
+                                response == "Yes" ~ "Detection",
+                                response == "No" ~ "Detection",
+                                response == "Tilted" ~ "Tilt",
+                                response == "Vertical" ~ "Tilt"))
+
+# calculating area under the curve for each response for each subject
+AUC_subj <- as.data.frame(sapply(split(cum_prob_subj, list(cum_prob_subj$subj_id, cum_prob_subj$response)), function(x) {data.table(auc=auc(x=x$incorrect, y=x$correct, from=1), subj=x$subj_id)
+}))
 
 # calculate the mean prob & se for the group
-prob <- data.table(conf) 
-prob_response <- prob[, .(prob_mean=(sum(prob)/no_subj), prob_se=(se(prob))), by=.(task, response, accuracy, confidence)] 
-
-#sort the df order
-prob_response <- prob_response[order(task, response, accuracy, -confidence),]
-
-# get the cumulative prob for each task & response & accuracy 
-prob_cum <- data.table(prob_response)
-cum_prob <- prob_cum[, .(cum_prob=cumsum(prob_mean), confidence, prob_se), by=.(task, response, accuracy)]%>%             
+cum_prob1 <- cum_prob_subj[, .(incorrect=mean(incorrect),correct=mean(correct), incorrect_se=se(incorrect), correct_se=se(correct)), by=.(task, response, confidence)] %>%
   #add the origin(0,0) point for each task on ROC plot
-  add_row(task = "Detection", response= c("Yes", "No","Yes", "No"), confidence = 7, accuracy=c(0,0,1,1), cum_prob=0, prob_se=0)%>% add_row(task = "Tilt", response= c("Tilted", "Vertical","Tilted", "Vertical"), confidence = 7, accuracy=c(0,0,1,1), cum_prob=0, prob_se=0)%>% add_row(task = "Discrimination", response= c("Clockwise", "Anticlockwise","Clockwise", "Anticlockwise"), confidence = 7, accuracy=c(0,0,1,1), cum_prob=0, prob_se=0) %>% pivot_wider(names_from = accuracy, values_from = c("cum_prob", "prob_se"))
+  complete(nesting(task, response), confidence = 1:7, fill = list(correct=0, incorrect=0, correct_se=0, incorrect_se=0))
 
-# calculating area under the curve for each response
-AUC <- as.data.frame(sapply(split(cum_prob, cum_prob$response), function(x) {
-  data.table(auc=auc(x=x$cum_prob_0, y=x$cum_prob_1, from=0))
-}))
+AUC <- as.data.frame(sapply(split(cum_prob, cum_prob$response), function(x){
+  data.table(auc=auc(x=x$incorrect, y=x$correct, from=0))
+})) 
 
 # add AUC values to responses (to appear on legend in ROC plots)
 cum_prob$response[cum_prob$response=="Vertical"] <- paste0('Vertical (AUC=',apa(AUC$Vertical.auc, 2, T), ')')
@@ -533,48 +582,20 @@ beta_task <- dt_group[, .(p_task=(summary(aov(beta~task))[[1]][["Pr(>F)"]][[1]])
 # compare slope between different responses within each task for each ROI
 beta_resp <- dt_group[, .(p_response=(summary(aov(beta~response))[[1]][["Pr(>F)"]][[1]])), by=.(task, ROI)]
 
-
-################
-# scatter plot
-#################
-rt_test <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, stimulus)]%>%spread(key = 'stimulus', value = 'median_rt') %>%rename(present="1", absent="0") %>% mutate(median_rt=present-absent) %>%subset(select=c(subj_id, task, median_rt))
-
-#count no. of correct trials for each task for each participant
-test <- data_valid %>% 
-  #group by ID, type of task and accuracy
-  group_by(subj_id, task, accuracy, stimulus) %>% 
-  #count number of correct/incorrect/NAH trials 
-  summarize(no_trials=(count = n())) %>%
-  #combine with the total data frame
-  inner_join(sti_trials, by = c ("subj_id","task")) %>%
-  mutate(correct = no_trials / sti_trials) %>%
-  filter(accuracy==1) %>%
-  subset(select=c(subj_id, task, stimulus, correct)) %>%
-  spread(key = 'stimulus', value = 'correct') %>%
-  rename(present="1", absent="0") %>%
-  mutate(acc=present-absent) %>%
-  subset(select=c(subj_id, task, acc)) %>%
-  inner_join(rt_test, by = c ("subj_id", "task"))
-
-data1 <- test %>% filter(task=="Discrimination")
-rt_model <- lm(data = data1, acc~median_rt)
-
-
-test_plot <- function(cur_task, df){
-  df<- df%>%filter(task==cur_task)
-  plot <- ggplot(data=df, aes(x=median_rt, y=acc)) + geom_point()+ labs(title=paste('RT and Accuracy',cur_task), x= "rt(present-absent)", y="accuracy(present-absent)")
-  print(plot)
-}
-
-for (task in list('Detection','Discrimination','Tilt')){
-    print(task)
-    test_plot(task, test)
-}
-
 ```
 ## 4.5.Effect of confidence on BOLD signal in ROIs
 From our data, negative linear confidence-related effects were observed in right Temporoparietal Junction (rTPJ) ($\beta$=`r apa(beta$beta_group[beta$ROI=='rTPJ'],2,T)`, `r lm_ROI('rTPJ', beta)`), Posterior Medial Frontal Cortex (pMFC)($\beta$=`r apa(beta$beta_group[beta$ROI=='pMFC'],2,T)`, `r lm_ROI('pMFC', beta)`), as well as positive linear correlation between confidence and BOLD signals in Ventromedial Prefrontal Cortex (vmPFC)($\beta$=`r apa(beta$beta_group[beta$ROI=='vmPFC'],2,T)`, `r lm_ROI('vmPFC', beta)`), Medial Frontopolar Cortex (FPm)($\beta$=`r apa(beta$beta_group[beta$ROI=='FPm'],2,T)`, `r lm_ROI('FPm', beta)`) and Lateral Frontopolar Cortex (FPl)($\beta$=`r apa(beta$beta_group[beta$ROI=='FPl'],2,T)`, `r lm_ROI('FPl', beta)`). 
 
 To investigate whether linear effects of confidence on BOLD signal were influenced by the type of task (Detection vs. Discrimination vs. Tilt recognition) and/or response (Yes vs. NO; Clockwise vs. Anticlockwise; Vertical vs. Tilted), linear models with interactions were tested. The effects of confidence failed to show a significant difference between three tasks in all ROIs (all p values > 0.32). Significant effects of response type were observed in the FPl region for both detection ` r apa(beta_resp$p_response[beta_resp$task=='Detection'&beta_resp$ROI=='FPl'], 2, T)` and discrimination `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='FPl'], 2, T)` as well as a significant difference between CLOCKWISE and ANTICLOCKWISE response in rTPJ `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='rTPJ'], 2, T)`. No significant effect between different responses was observed for three tasks in other regions (p values > 0.13).
 
-## Reference
+# 5.Discussion
+Detection and discrimination are two distinctive perceptual processes that constitute some of the most fundamental tasks we perform on a daily basis. Detection involves identifying the presence of a target whereas discrimination requires one to categorise the target into certain group. The differences in the nature of those two tasks have been shown to influence the accuracy of one’s confidence judgement towards their performance (XX), with research showing that such judgements are more accurate in discrimination than detection. Differences between detection and discrimination were also manifested in a unique quadratic effect of confidence that were found in rTPJ and frontopolar cortex in detection task in contrast to discrimination task (Mazor, Friston, & Fleming, 2020). The current study aims to investigate whether such unique activation pattern reflects a qualitative difference, i.e. distinctive cognitive processes involved, or a quantitative difference, i.e. equal or unequal distribution of sensory evidence, in forming confidence in those two tasks, between detection and discrimination. To test those different accounts, a novel discrimination task, which at the same time, also fulfills the characteristics of a detection task from the perspective of SDT, was introduced. This novel task includes two alternative choices that has unequal distribution of sensory evidence available for the observer.
+
+## 5.1. response bias
+## 5.2. metacognitive sensitivity in three perceptual tasks
+## 5.3. reaction time
+
+# 6. Ethics of animal research
+An important consideration we draw readers attention to is the aspect considering ethics of the methodology used in cited animal studies (CITE ALL ANIMAL RESEARCH HERE). These research often involves training animals (e.g. rhesus monkeys) to perform tasks to serve the purpose of research. However, the details of training process is often not fully reported, which in a lot of cases involves certain level of restraining animals from satisfying their physical needs (e.g. starvation). Although these existing studies do provide different perspectives from human research, here we call animal researchers to reconsider the ethics of such methods and develop alternative training systems that for instance, emphasis more on rewards without harming basic needs of animals. 
+
+# 7. Reference
