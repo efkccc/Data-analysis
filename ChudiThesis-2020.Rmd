@@ -1,7 +1,7 @@
 ---
 title: Chudi Thesis
 author: Chudi Gong
-date: 03/07/2020
+date: 02/09/2020
 output: pdf_document
 bibliography: references.bib
 ---
@@ -29,7 +29,7 @@ se <- function(x) sqrt(var(x)/length(x))
 # 1.Abstract
 
 # 2.Introduction 
-As human beings we often make statements such as ‘I am confident that…’, reflecting the importance of confidence, which has wide applications in fields such as medical diagnosis, financial choices and eyewitness testimony etc.. Confidence can be defined as ‘a belief about the validity of our own thought, knowledge or performance that relies on a subjective feeling.’ [@grimaldi2015nbr]. The confidence of one decision can bear on another decision, such as when one decides to drop a stock investment after purchasing. The formation of confidence in human perception has been investigated extensively, with developments of various behavioural, neural and computational models.  
+As human beings we frequently make statements such as ‘I am confident that…’, reflecting the importance of confidence in daily life. Confidence can be defined as ‘a belief about the validity of our own thought, knowledge or performance that relies on a subjective feeling.’ [@grimaldi2015nbr], which has wide applications in various fields including medical diagnosis, financial choices and eyewitness testimony etc. As a type of subjective judgement, the level of confidence towards one decision can effectuate other subsequent decisions either for oneself or others, such as when an investor decides to drop a stock investment after purchasing. Given its importance, the mechanism supporting confidence formation has been investigated extensively in both animals and humans, leading to developments of behavioural, neural and computational models. 
 
 Traditionally, research investigating how confidence is formed with regards to perception commonly used detection and discrimination tasks, which are considered to represent the very basics of our perceptual abilities. A detection task requires to identify the presence of a stimulus (e.g. whether a dot is present or absent) whereas a discrimination task (sometimes labeled as categorization) requires to distinguish a target stimulus from other distractors based on certain features (e.g. whether the line is tilted to the left or the right). Although they are both perceptual tasks, evidence has suggested they can lead to differences in objective performance [e.g., @mack2010jephpp], which has been investigated extensively in past decades. Until recent years, with increasing popularity in investigating confidence formation, studies showed that detection and discrimination can also lead to distinctive subjective judgments of performance behaviourally ([@meuwese2014app]) and neuroimaging data suggested different neural representations associated with judging confidence in these two tasks [e.g., @mazor2020e]. Models that have been put forward to explain such differences can be broadly divided into two camps: 1.) Confidence judgments is a higher-order process that treats detection and discrimination distinctively due to the differences in the control of one’s internal state, such as attention; 2.) Behaviour and neural activities differ as a response to the physical features of detection and discrimination at the perceptual level such as amount of sensory evidence and confidence is formed through similar process for these two tasks.
 
@@ -43,6 +43,8 @@ On the other hand, @mack2010jephpp used a paradigm to assess the level of depend
 A more prominent, and perhaps most elementary difference between detection and discrimination tasks is that the two alternative choices rely on asymmetrical sensory evidence for detection in contrast to symmetrical evidence for discrimination. In discrimination tasks sensory evidence is available for both alternative choices. On the other hand, in a detection task, virtually no sensory evidence is available for participants to make an absence decision, a feature that essentially makes up the definition of ‘absence’ in such tasks, in contrast to a present decision. This makes the “absence” condition in detection tasks a particularly interesting case. 
 
 Absence can be defined as ‘the nonexistence or lack of’. The question is then how our brain encodes something that is not there and translate it into sensory experience which is later used for decisions. The absence of a stimulus is traditionally thought to be coded by the brain as baseline activity in contrast to more robust firing of neurons in the presence of a stimulus.  Contrariwise, when stimulus with strength on a continuing spectrum was shown, only those evoking activities beyond the threshold were considered to be perceived as present [@victordelafuente2005nn].  However, despite the lack of sensory evidence in absence conditions, recent evidence has suggested that neurons encode both stimulus absence and presence when dissociated from motor response [@katharinamerten2012pnas]. In their study, they found that prefrontal cortex (PFC) is recruited in rhesus monkeys during stimulus present trials as well as absence trials using single neuron recordings.  
+
+_Miyamoto and colleagues (2018) reported a similar finding in a short-term metamemory task, where non-human primate subjects wagered on the accuracy of their answers while constrained inside an MRI scanner. Similar to our results, BOLD signal in frontopolar area 10 predicted fluctuations in metacognitive sensitivity specifically for 'non-experienced' responses. Furthermore,  reversible silencing of BA10 by means of a GABA-A silencer injection significantly impaired metacognitive judgments for 'no' responses without having an effect on their type-I performance, supporting a causal role of BA10 for high-level representation of absence. Our results thus reveal a striking resemblance in brain activation for metacognitive judments between human and non-human p-rimates at the highest level of the prefrontal hierarchy. Apart from the importance of these results for the study of human metacognition, we believe it should also inform future discussions about the ethical status of these experiments in non-human primates._ 
 
 A similar line of research has investigated the representation of ‘empty set’, which is the precursor for zero, in the brain. As trivial as this concept might appear, it actually makes up a fundamental part of the mathematical continuum that has not been investigated until recent decades [@rinaldi2016tics].  How does the brain react to an empty set, i.e. nothing in contrast to other numbers?  It has been shown that a group of neurons in the posterior parietal cortex of monkeys were activated in response to numerosity ‘zero’ in a numerical operation task [@sumitookuyama2015sr]. Furthermore, @sumitookuyama2015sr found two types of ‘zero’ neurons in the ventral intraparietal (VIP) area; an exclusive group that showed selective response to zero target in contrast to non-zero targets and a continuous group that encodes both zero and non-zero numerosities (from 0 to 4) with strength on a continuous spectrum. Their results showed the presence of active encoding of numerosity zero, i.e. empty set, despite treating it as a continuous or categorical variable. Similar results were found by [@ramirez-cardenas2016cb]. By training monkeys to perform a number matching task, they found that not only all recorded neurons in VIP area and prefrontal cortex responded to empty sets, some of them also discharged maximally to empty sets in comparison to other numerosities, i.e. zero selective, which constitutes an even higher proportion of VIP cells in comparison to findings from @sumitookuyama2015sr. 
 
@@ -189,6 +191,7 @@ data_valid$response[(data_valid$response=="1") &
 
 # transform into data.table
 dt <- data.table(data_valid)
+dt_raw <- data.table(data_valid_raw)
 
 # create a tidy version of data file (BOLD signal as a single vector, ROIs as grouping variable)
 data_tidy <- rename(data_valid, c('rTPJ'='BOLD_rTPJ', 'vmPFC'='BOLD_vmPFC', 'FPl'='BOLD_FPl', 'FPm'='BOLD_FPm', 'pMFC'='BOLD_pMFC'))
@@ -225,7 +228,7 @@ individual_accuracy <- individual_trials %>% filter(accuracy==1) %>%rename(corre
 
 # 4.Results
 ## 4.1.Performance across threee tasks
-```{r , include=FALSE, cache=TRUE}
+```{r , performance analysis, include=FALSE, cache=TRUE}
 #display accuracy for each task 
 task_accuracy <- individual_accuracy %>% group_by(task) %>% summarise(mean(correct)) %>% spread(key='task', value='mean(correct)')
 
@@ -266,7 +269,17 @@ aov.d <- aov_ez(data=d_subj,
                 id="subj_id",
                 dv= "d_prime",
                 within = "response")
+```
 
+```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
+number_ticks <- function(n) {function(limits) pretty(limits, n)}
+ggplot(individual_accuracy, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs (y="mean accuracy")+ theme_classic() +
+   geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
+```
+
+The performance across three tasks, detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar, where accuracy was computed as the proportion of correct trials out of total number of trials and d’ was calculated using the following formula:  d’ = z(FA) – z(H). A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' `r apa_print(aov.d)` ; see Figure \ref{fig:accuracy})), which reflected a good control over the difficulty level across the three tasks. 
+
+```{r, include=FALSE, cache=TRUE}
 ###########################
 # calculating response bias 
 ###########################
@@ -288,8 +301,8 @@ bias_lm <- apa_print(lm(data = subj_bias, Detection~Tilt)) # the correlation was
 
 # create a function to get the mean response probability +sd and do a t test to compare with 0.5
 
-resp_bias <- function(resp, df){
-  df <- df %>% filter(response==resp)
+resp_bias <- function(resp, cur_task, df){
+  df <- df %>% filter(response==resp&task==cur_task)
   resp_mean <- mean(df$prob)
   resp_sd <- sd(df$prob)
   task <- (rnorm(no_subj, mean = resp_mean, sd = resp_sd))
@@ -298,93 +311,89 @@ resp_bias <- function(resp, df){
   return(my_list)
 }
 
-resp_yes <- resp_bias('Yes', response)
-resp_no <- resp_bias('No', response)
-resp_dis <- resp_bias('Clockwise', response)
-resp_til <-resp_bias('Tilted', response)
-resp_ver <-resp_bias('Vertical', response)
+resp_yes <- resp_bias('1', 'Detection',response)
+resp_no <- resp_bias('0', 'Detection',response)
+resp_dis <- resp_bias('1', 'Discrimination', response)
+resp_til <-resp_bias('1', 'Tilt',response)
+resp_ver <-resp_bias('0', 'Tilt',response)
 
+```
+## 4.2.Response Bias
+To test whether participants were biased towards certain response, we computed the probability of giving each response in three tasks. The probability of responding NO in detection was `r apa(resp_no$mean, 2, T)` (± `r apa(resp_no$sd, 2, T)`), and was  significantly different from 0.5 (`r resp_no$full_result`), showing that participants are more likely to give NO responses than YES response in detection task. The probability of responding CLOCKWISE was `r apa(resp_dis$mean, 2, T)` (± `r apa(resp_dis$sd, 2, T)`) and was not significantly different from 0.5 (`r resp_dis$full_result`). For the tilt recognition task, the probability of responding TILTED was `r apa(resp_til$mean, 2, T)` (± `r apa(resp_til$sd, 2, T)`), which was significantly lower than responding VERTICAL `r apa(resp_ver$mean, 2, T)` ± (`r apa(resp_ver$sd, 2, T)`) (`r resp_til$full_result`).
+
+Furthermore,given the existence of significant response bias in both detection and tilt recognition task, statistical test was conducted to assess whether individuals who are more likely to give NO responses in detection are also more likely to give VERTICAL response in tilt recognition. A linear model was fitted to the probabilities of giving these two response within each individual and this model fit result suggest that this relationship was not significant (`r bias_lm`). 
+
+```{r, include=FALSE, cache=TRUE}
 #####################
 #calculating rt
 #####################
+# get individual median rt, mean rt, and mean log rt for different accuracy
+subj_rt_acc <- dt[, .(median_rt=median(rt), mean_rt= mean(rt), mean_log_rt=mean(log_rt)), by=.(subj_id,task,accuracy)]
+
+# get group median rt
+rt_acc <- subj_rt_acc[, .(median_rt=median(median_rt), mean_log_rt= mean(mean_log_rt)), by=.(task, accuracy)]
+
+# get quantiles of rt for different accuracy 
+qt_accuracy <- rt_acc[, .(quantile(median_rt, c(.25,.5,.75))), by=accuracy]
+
+#t test comparing log_rt for correct and incorrect response
+t_rt_acc <- t.test (mean_log_rt~accuracy, mu=0, paired=TRUE, data=subj_rt_acc)
+
 # get individual median rt, mean rt, and mean log rt
-subj_rt <- dt[, .(median_rt=median(rt), mean_rt= mean(rt), mean_log_rt=mean(log_rt)), by=.(subj_id,task, response)]
+subj_rt <- dt[, .(median_rt=median(rt), mean_rt= mean(rt), mean_log_rt=mean(log_rt)), by=.(subj_id,task,response)]
 
 # get group median rt
 rt <- subj_rt[, .(median_rt=median(median_rt), mean_log_rt= mean(mean_log_rt)), by=.(task, response)]
-
-# get quantiles of rt
-qt_accuracy <- rt[, .(quantile(median_rt, c(.25,.5,.75))), by=accuracy]
-
-#t test comparing log_rt for correct and incorrect response
-t_rt_acc <- t.test (log_rt~accuracy, mu=0, paired=TRUE, data=subj_rt)
 
 #t test comparing the effect of response type on log_rt for detection, discrimination and tilt 
 t_rt_det <-t.test(mean_log_rt~response, mu=0, paired=TRUE, data=(subj_rt%>% filter(task=='Detection')))
 t_rt_dis <-t.test(mean_log_rt~response, mu=0, paired=TRUE, data=(subj_rt%>% filter(task=='Discrimination')))
 t_rt_til <-t.test(mean_log_rt~response, mu=0, paired=TRUE, data=(subj_rt%>% filter(task=='Tilt')))
 
-# get the group level log rt for each task
-mean_log_rt <- subj_rt[,.(mean=mean(log_rt)), by=.(task,response)]
-
 ```
 
-The performance across three tasks, detection (accuracy= `r apa(task_accuracy$Detection, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Yes'], 2, T)`),  discrimination (accuracy= `r apa(task_accuracy$Discrimination, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Clockwise'], 2, T)`) and tilt recognition (accuracy = `r apa(task_accuracy$Tilt, 2, T)`, d'= `r apa(d_task$mean_d[d_task$response=='Tilted'], 2, T)`) was similar, where accuracy was computed as the proportion of correct trials out of total number of trials and d’ was calculated using the following formula:  d’ = z(FA) – z(H). A one-way ANOVA failed to detect a significant difference between the accuracy of these three tasks `r apa_print(aov_accuracy)` and d' `r apa_print(aov.d)` ; see Figure \ref{fig:accuracy})), which reflected a good control over the difficulty level across the three tasks. 
-
-## 4.2.Response Bias
-To test whether participants were biased towards certain response, we computed the probability of giving each response in three tasks. The probability of responding Yes in detection was `r apa(resp_yes$mean, 2, T)` (± `r apa(resp_yes$sd, 2, T)`), and was significantly different from 0.5 (`r resp_yes$apa_t`), showing that participants are more likely to give NO response than YES response in the detection task. The probability of responding CLOCKWISE was `r apa(resp_dis$mean, 2, T)` (± `r apa(resp_dis$sd, 2, T)`) and was not significantly different from 0.5 (`r resp_dis$apa_t`). For the tilt recognition task, the probability of responding TILTED was `r apa(resp_til$mean, 2, T)` ± `r apa(resp_til$sd, 2, T)`, which was significantly different from responding VERTICAL `r apa(resp_ver$mean, 2, T)` ± `r apa(resp_ver$sd, 2, T)` (`r resp_til$apa_t`).
-
-Furthermore,given the existence of significant response bias in both detection and tilt recognition task, statistical test was conducted to assess whether individuals who are more likely to give NO responses in detection are also more likely to give VERTICAL response in tilt recognition. A linear model was fitted to the probabilities of giving these response within each individual and this model was not significant (`r bias_lm`). 
-
-```{r, accuracy_figure, echo=FALSE, message=FALSE,fig.cap="\\label{fig:accuracy} Mean accuracy across three tasks", cache=TRUE}
-number_ticks <- function(n) {function(limits) pretty(limits, n)}
-ggplot(individual_accuracy, mapping = aes(x= task, y=correct)) + ylim(0.4, 1) +labs (y="mean accuracy")+ theme_classic() +
-   geom_boxplot()+ geom_jitter(position=position_jitter(width=.1, height=0), alpha=0.3, size=4) + scale_y_continuous(breaks=number_ticks(6), limits=c(0.4, 1)) + geom_hline(yintercept=0.5, linetype="dashed", color = "black") + theme(plot.title = (element_text(color = "black", size = 12, face = "italic")))
-```
 ## 4.3.Response time
-Consistent with previous studies, response time was faster for correct response (1st quantile= `r qt_accuracy[1,2]`, median= `r qt_accuracy[2,2]`, 3rd quantile= `r qt_accuracy[3,2]` milliseconds) than incorrect responses (1st quantile= `r qt_accuracy[4,2]`, median= `r qt_accuracy[5,2]`, 3rd quantile= `r qt_accuracy[6,2]` milliseconds) according to a paired t test on the log reaction time(`r (apa_print(t_rt_acc))$full_result)`). A one-way analysis of variance failed to detect a significant overall effect of responses type on log reaction time in detection task (YES vs. NO, `r apa_print(t_rt_det)`) and discrimination task (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`). _However, the paired sample t test revealed that in tilt recognition, the type of response (VERTICAL vs. TILTED) had significant impact on the log transformed reaction time `r (apa_print(t_rt_til))$full_result)`) such that participants are faster on responding TILTED than VERTICAL._
+Consistent with previous studies, response time was faster for correct response (1st quantile= `r qt_accuracy[1,2]`, median= `r qt_accuracy[2,2]`, 3rd quantile= `r qt_accuracy[3,2]` milliseconds) than incorrect responses (1st quantile= `r qt_accuracy[4,2]`, median= `r qt_accuracy[5,2]`, 3rd quantile= `r qt_accuracy[6,2]` milliseconds) according to a paired t test on the log reaction time(`r (apa_print(t_rt_acc)$full_result)`). A one-way analysis of variance failed to detect a significant overall effect of responses type on log reaction time in detection task (YES vs. NO, `r apa_print(t_rt_det)`), discrimination task (CLOCKWISE vs. ANTICLOCKWISE, `r apa_print(t_rt_dis)`) and tilt recognition task `r (apa_print(t_rt_til)$full_result)`) according to the results from paired sample t tests. 
 
 ```{r, log_rt_figure, echo=FALSE, message=FALSE, fig.cap="\\label{fig:log_rt} Log transformed reaction time across three tasks", cache=TRUE}
-
+# get mean log rt at each confidence level for each subject
 subj_log_rt <- dt[, .(mean_log=mean(log_rt)), by=.(subj_id, task, response, confidence)]
-log_rt <- subj_log_rt[, .(log_rt=mean(mean_log), log_rt_se=se(mean_log)), by=.(task, response, confidence)]
 
+# get mean log rt at each confidence levels for each task 
+log_rt <- subj_log_rt[, .(log_rt=mean(mean_log), log_rt_se=se(mean_log)), by=.(task, response, confidence)]
 color_scheme <- tibble(Detection=c("#e41a1c", "#377eb8"), 
                        Discrimination=c("#984ea3", "#4daf4a"),
                        Tilt=c("#999999","#f781bf"))
 
-rt_plot <- function(cur_task, df){
-  df <- df %>% filter(task==cur_task)
-  plot <- ggplot(data=df, aes(x=confidence, y=log_rt)) +
+cbPalette <- c("#984ea3", "#4daf4a","#e41a1c", "#f781bf","#999999","#377eb8")
+
+# plotting log rt against confidence
+log_rt_plot <- ggplot(data=log_rt, aes(x=confidence, y=log_rt)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
   geom_errorbar( aes(ymin = log_rt-log_rt_se, ymax = log_rt+log_rt_se, colour = factor(response)), width = 0.1)+
-  scale_color_manual(values=color_scheme[[cur_task]]) +
-  labs(title=paste('Log reaction time,', cur_task), x= "confidence", y="mean RT", color="Response") +
+  scale_color_manual(values=cbPalette) +
+  labs(title='Log reaction time and confidence', x= "confidence", y="mean Log RT ") +
   theme_classic() + 
   scale_x_continuous(limits = c(0.5, 6),breaks=number_ticks(6)) + 
-  theme(legend.position=c(0.8, 0.9),  
-        legend.background = element_blank(),
+  theme(legend.background = element_blank(),
         legend.key = element_blank(),
         legend.title = element_blank(),
         legend.text = (element_text(size = 10, face = "bold")),
         axis.text=(element_text(size=14)),
         axis.title=(element_text(size=14,face="bold")),
-        plot.title = (element_text(color = "black", size = 14, face = "bold.italic"))) 
-  print(plot)
-}
+        plot.title = (element_text(color = "black", size = 14, face = "bold.italic")))+
+facet_wrap(~task)
 
-for (task in list('Detection','Discrimination','Tilt')) {
-    print(task)
-    rt_plot(task,log_rt)
-}
+print(log_rt_plot)
+
 ```
 
-```{r, log_rt_figure, echo=FALSE, message=FALSE, fig.cap="\\label{fig:rt_accuracy tradeoff} ", cache=TRUE}
+```{r, log_rt_accuracy figure, echo=FALSE, message=FALSE, fig.cap="\\label{fig:rt_accuracy tradeoff} ", cache=TRUE}
 ########################################
 # speed accuracy trade-off scatter plot
 ########################################
-rt_test <- dt[, .(median_rt=median(rt)), by=.(subj_id,task, response)]%>%spread(key = 'response', value = 'median_rt') %>%rename(present="1", absent="0") %>% mutate(median_rt=present-absent) %>%subset(select=c(subj_id, task, median_rt))
+rt_test <- dt_raw[, .(median_rt=median(rt)), by=.(subj_id,task, response)]%>%spread(key = 'response', value = 'median_rt') %>%rename(present="1", absent="0") %>% mutate(median_rt=present-absent) %>%subset(select=c(subj_id, task, median_rt))
 
 rt_acc <- data_valid_raw %>% 
   #group by ID, type of task and accuracy
@@ -407,7 +416,7 @@ rt_accuracy_plot <- ggplot(data=rt_acc, aes(x=median_rt, y=acc)) +
     geom_smooth(method=lm, se=FALSE, linetype="dashed",
              color="darkred")+
     theme_classic()+
-    labs(title= "Reaction time and accuracy", x= "reaction time difference between responses", y="accuracy difference between responses")+
+    labs(title= "Reaction time and accuracy", x= "mean reaction time difference between responses per subject", y="mean accuracy difference between responses per subject")+
   facet_wrap(~task)
 
 print(rt_accuracy_plot)
@@ -421,7 +430,7 @@ rt_acc_til <- apa_print(lm(data = (rt_acc %>% filter(task=='Tilt')), acc~median_
 To explore the relationship between reaction time and accuracy in each task, further linear regression analysis was carried out. Namely, we are interested in whether participants who took longer to give one response (YES, CLOCKWISE and TILTED) than the opposite (NO, ANTICLOCKWISE and VERTICAL) are also more likely to be correct in those choices. We computed the accuracy difference and response time difference between each response pairs in three task and tested the linear relationship between them, the results from which reveals a significant correlation in discrimination `r rt_acc_dis` but not in detection `r rt_acc_det` and tilt recognition `r rt_acc_til` (see Figure \ref{fig:rt_accuracy tradeoff}). 
 
 ```{r include=FALSE, cache=TRUE}
-#confidence frequency for each task&response for each subject
+#confidence frequency for each task & response for each subject
 subj_conf <- data_valid %>%
   group_by(subj_id, task,confidence,response) %>%
   summarise(conf_trials=(count=n())) %>%
@@ -430,20 +439,30 @@ subj_conf <- data_valid %>%
 # group-level confidence frequencies
 confidence_distribution <- subj_conf[, .(frequency=mean(conf_trials), se=se(conf_trials)), by=.(task, response, confidence)]
 
-t_conf_det <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = data_det)
-t_conf_til <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, data = data_til)
+mean_conf_sub <- dt[, .(confidence=mean(confidence)), by=.(subj_id, task, response)]
+mean_conf_group <- mean_conf_sub[, .(confidence=mean(confidence)), by=response]
+  
+# t test comparing confidence levels between two responses in each task
+t_conf_det <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, paired=TRUE, data = (mean_conf_sub %>% filter(task=="Detection")))
+
+t_conf_dis <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, paired=TRUE,
+                     data = (mean_conf_sub %>% filter(task=="Discrimination")))
+
+t_conf_til <- t.test(confidence~response, mu=0, alt="two.sided", conf=0.95, paired=TRUE,
+                     data = (mean_conf_sub %>% filter(task=="Tilt")))
+
+data_valid$response[(data_valid$response=="0") &
+                                   data_valid$task=='Detection'] 
 ```
 &nbsp;
 
 ## 4.2.Confidence distributions
-Within detection, a significant difference in mean confidence was observed between Yes (target present) and NO (target absent) responses (see Fig.4 above) (`r apa_print(t_conf_det)`) , such that participants are more confident in their Yes responses than NO response and a statistical significance was also observed in the tilt recognition task between TILTED and VERTICAL response (`r apa_print(t_conf_til)`; see Figure \ref{fig:confidence}). 
+Within detection, no significant difference in mean confidence was observed between Yes (target present) and NO (target absent) responses (see Fig.4 above) (`r apa_print(t_conf_det)`) and similarly, in the discrimination task participants' mean confidence ratings did not differ significantly between the CLOCKWISE and ANTICLOCKWISE responses (`r apa_print(t_conf_det)`). However the tilt recognition task, a paired sample t test revealed that the effect of response type had a significant impact on mean confidence levels (`r apa_print(t_conf_til)`, such that participants are more confident in TILTED (` r apa(mean_conf_group$confidence[mean_conf_group$response=="Tilted"], 2, T)`) than VERTICAL response (` r apa(mean_conf_group$confidence[mean_conf_group$response=="Vertical"], 2, T)`) (see Figure \ref{fig:confidence}). 
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:confidence} Confidence distributions across three tasks and responses. Error bars represent the standard error of the mean.", cache=TRUE}
-
 #plot the frequency of confidence ratings for all three tasks
 task_labs = c('Detection','Discrimination','Tilt Recognition')
 names(task_labs) = c('Detection','Discrimination','Tilt')
-cbPalette <- c("#e41a1c", "#377eb8","#4daf4a", "#984ea3","#999999","#f781bf")
 
 confidence_det <- ggplot(confidence_distribution, mapping = aes(x = confidence, y= frequency, fill= response)) +
   geom_bar(stat="identity", width = 0.65, position = position_dodge(width = 0.7))+
@@ -460,7 +479,7 @@ confidence_det+facet_grid(rows=vars(task),
 
 &nbsp;
 
-``` {r Type 2 ROC, echo=FALSE, message=FALSE, }
+``` {r Type 2 ROC , echo=FALSE, message=FALSE, }
 #get the total number of trials for correct vs incocrrect for each response respectively 
 acc <- data_valid %>%
   group_by(subj_id, task, accuracy, response) %>%
@@ -475,31 +494,32 @@ conf <- data_valid %>%
   mutate(prob=conf_trials/acc_trials) 
 
 #calculate individual AUC
-# filling in the missing values for each combination (task, accuracy, response and confidence)
+# filling in the missing values for each combination (task, accuracy, response and confidence, i.e.where ppl didn't give all conf ratings)
 conf_subj <- conf %>% ungroup %>% complete(subj_id, accuracy, response, confidence = 1:6, fill = list(conf_trials = 0, prob = 0)) %>% group_by(subj_id, task, accuracy, response, confidence)
 
+# convert into data table
 conf_subj <- as.data.table(conf_subj)
-
 # sort the df with descending confidence level
 conf_subj <- conf_subj[order(-confidence),]
 
 # get the cumulative prob for each task & response & accuracy for each subject 
-cum_prob_subj <- conf_subj[, .(cum_prob=cumsum(prob), confidence), by=.(subj_id, response, accuracy)] %>% spread(key=accuracy, value=cum_prob)%>% rename("correct"="1", "incorrect"="0") %>% mutate(task = case_when(response == "Clockwise" ~ "Discrimination", 
+cum_prob_subj <- conf_subj[, .(cum_prob=cumsum(prob), confidence), by=.(subj_id, response, accuracy)] %>% spread(key=accuracy, value=cum_prob)%>% rename("correct"="1", "incorrect"="0") %>%   #add the origin(0,0) point for each ROC plot
+  complete(nesting(subj_id, response), confidence = 1:7, fill = list(correct=0, incorrect=0)) %>% #add a column specifying task
+  mutate(task = case_when(response == "Clockwise" ~ "Discrimination", 
                                 response == "Anticlockwise" ~ "Discrimination",
                                 response == "Yes" ~ "Detection",
                                 response == "No" ~ "Detection",
                                 response == "Tilted" ~ "Tilt",
-                                response == "Vertical" ~ "Tilt"))
+                                response == "Vertical" ~ "Tilt")) %>%as.data.table()
 
 # calculating area under the curve for each response for each subject
-AUC_subj <- as.data.frame(sapply(split(cum_prob_subj, list(cum_prob_subj$subj_id, cum_prob_subj$response)), function(x) {data.table(auc=auc(x=x$incorrect, y=x$correct, from=1), subj=x$subj_id)
-}))
+# AUC_subj <- as.data.frame(sapply(split(cum_prob_subj, list(cum_prob_subj$subj_id, cum_prob_subj$response)), function(x) {data.table(auc=auc(x=x$incorrect, y=x$correct, from=1), rownames=x$subj_id)
+# }))
 
 # calculate the mean prob & se for the group
-cum_prob1 <- cum_prob_subj[, .(incorrect=mean(incorrect),correct=mean(correct), incorrect_se=se(incorrect), correct_se=se(correct)), by=.(task, response, confidence)] %>%
-  #add the origin(0,0) point for each task on ROC plot
-  complete(nesting(task, response), confidence = 1:7, fill = list(correct=0, incorrect=0, correct_se=0, incorrect_se=0))
+cum_prob <- cum_prob_subj[, .(incorrect=mean(incorrect),correct=mean(correct), incorrect_se=se(incorrect), correct_se=se(correct)), by=.(task, response, confidence)] %>% complete(nesting(task, response), confidence = 1:7, fill = list(correct=0, incorrect=0, correct_se=0, incorrect_se=0))
 
+# calculate the AUC for the group 
 AUC <- as.data.frame(sapply(split(cum_prob, cum_prob$response), function(x){
   data.table(auc=auc(x=x$incorrect, y=x$correct, from=0))
 })) 
@@ -515,7 +535,7 @@ cum_prob$response[cum_prob$response=="Anticlockwise"] <- paste0('Anticlockwise (
 ```
 
 ## 4.4.Metacognitive sensitivity
-Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(AUC$Yes.auc, 2, T) `) than No (`r apa(AUC$No.auc, 2, T)`) response (T RESULTS). Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(AUC$Tilted.auc, 2, T)`) than Vertical (`r apa(AUC$Vertical.auc, 2, T)`) responses where as AUC is similar between the two responses in discrimination task. This suggest that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being present than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by participants' confidence ratings than the correct judgments of a stimulus being vertical. 
+Metacognitive sensitivity, which is quantified as the area under Type 2 ROC curve (see \ref{fig:type2 ROC} ), is significantly higher for Yes (`r apa(AUC$Yes.auc, 2, T) `) than No (`r apa(AUC$No.auc, 2, T)`) response (T RESULTS). Similar pattern is observed in the tilt recognition task, where the AUC is significantly higher for Tilted (`r apa(AUC$Tilted.auc, 2, T)`) than Vertical (`r apa(AUC$Vertical.auc, 2, T)`) responses (T RESULTS) whereas AUC is similar between the two responses in discrimination task. This suggests that participants confidence ratings are more diagnostic to accuracy in the judgments of a target stimulus being present than being absent. Similarly, the correct judgments of a stimulus being tilted is better reflected by participants' confidence ratings than the correct judgments of a stimulus being vertical. 
 
 ```{r echo=FALSE, message=FALSE, fig.cap="\\label{fig:type2 ROC} Type 2 ROC curve for each task.", cache=TRUE, fig.width=3.2, fig.height=3.2}
 #################################### 
@@ -526,11 +546,11 @@ roc_plot <- function(cur_task, df){
   # only include data for current task
   df <- df%>%filter(task==cur_task)
   
-  plot<-ggplot(data=df, aes(x=cum_prob_0, y=cum_prob_1)) +
+  plot<-ggplot(data=df, aes(x=incorrect, y=correct)) +
   geom_line(aes(colour = factor(response))) +
   geom_point(aes(color = factor(response)), size = 3) + 
-  geom_errorbar(aes(ymin=cum_prob_1-prob_se_1, ymax=cum_prob_1+prob_se_1, colour = factor(response))) +
-  geom_errorbarh(aes(xmin=cum_prob_0-prob_se_0, xmax=cum_prob_0+prob_se_0,colour = factor(response))) +
+  geom_errorbar(aes(ymin=correct-correct_se, ymax=correct+correct_se, colour = factor(response))) +
+  geom_errorbarh(aes(xmin=incorrect-incorrect_se, xmax=incorrect+incorrect_se,colour = factor(response))) +
   scale_color_manual(values=color_scheme[[cur_task]]) +
   labs(title=paste('Type 2 ROC', cur_task), x= "p(conf | incorrect)", y="p(conf | correct)", color="Response") +
   theme_classic() + scale_x_continuous(limits = c(0, 1),breaks=number_ticks(6)) + scale_y_continuous(limits = c(0, 1), breaks=number_ticks(6)) +
@@ -589,13 +609,15 @@ From our data, negative linear confidence-related effects were observed in right
 To investigate whether linear effects of confidence on BOLD signal were influenced by the type of task (Detection vs. Discrimination vs. Tilt recognition) and/or response (Yes vs. NO; Clockwise vs. Anticlockwise; Vertical vs. Tilted), linear models with interactions were tested. The effects of confidence failed to show a significant difference between three tasks in all ROIs (all p values > 0.32). Significant effects of response type were observed in the FPl region for both detection ` r apa(beta_resp$p_response[beta_resp$task=='Detection'&beta_resp$ROI=='FPl'], 2, T)` and discrimination `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='FPl'], 2, T)` as well as a significant difference between CLOCKWISE and ANTICLOCKWISE response in rTPJ `r apa(beta_resp$p_response[beta_resp$task=='Discrimination'& beta_resp$ROI=='rTPJ'], 2, T)`. No significant effect between different responses was observed for three tasks in other regions (p values > 0.13).
 
 # 5.Discussion
-Detection and discrimination are two distinctive perceptual processes that constitute some of the most fundamental tasks we perform on a daily basis. Detection involves identifying the presence of a target whereas discrimination requires one to categorise the target into certain group. The differences in the nature of those two tasks have been shown to influence the accuracy of one’s confidence judgement towards their performance (XX), with research showing that such judgements are more accurate in discrimination than detection. Differences between detection and discrimination were also manifested in a unique quadratic effect of confidence that were found in rTPJ and frontopolar cortex in detection task in contrast to discrimination task (Mazor, Friston, & Fleming, 2020). The current study aims to investigate whether such unique activation pattern reflects a qualitative difference, i.e. distinctive cognitive processes involved, or a quantitative difference, i.e. equal or unequal distribution of sensory evidence, in forming confidence in those two tasks, between detection and discrimination. To test those different accounts, a novel discrimination task, which at the same time, also fulfills the characteristics of a detection task from the perspective of SDT, was introduced. This novel task includes two alternative choices that has unequal distribution of sensory evidence available for the observer.
+Detection and discrimination are two distinctive perceptual processes that constitute some of the most fundamental tasks we perform on a daily basis. Detection involves identifying the presence of a target whereas discrimination requires one to categorise the target into certain group. The differences in the nature of those two tasks have been shown to influence the accuracy of one’s confidence judgement towards their performance (XX), with research showing that such judgements are more accurate in discrimination than detection. Differences between detection and discrimination were also manifested in a unique quadratic effect of confidence that were found in rTPJ and frontopolar cortex in detection task in contrast to discrimination task (Mazor, Friston, & Fleming, 2020). The current study aims to investigate whether such unique activation pattern reflects a qualitative difference, i.e. distinctive cognitive processes involved, or a quantitative difference, i.e. equal or unequal distribution of sensory evidence, in forming confidence in those two tasks, between detection and discrimination. To test those different accounts, a novel discrimination task, which at the same time, also fulfills the characteristics of a detection task from the perspective of SDT, was introduced. This novel task includes two alternative choices that have unequal distribution of sensory evidence available for the observer.
 
 ## 5.1. response bias
+
 ## 5.2. metacognitive sensitivity in three perceptual tasks
+
 ## 5.3. reaction time
 
 # 6. Ethics of animal research
-An important consideration we draw readers attention to is the aspect considering ethics of the methodology used in cited animal studies (CITE ALL ANIMAL RESEARCH HERE). These research often involves training animals (e.g. rhesus monkeys) to perform tasks to serve the purpose of research. However, the details of training process is often not fully reported, which in a lot of cases involves certain level of restraining animals from satisfying their physical needs (e.g. starvation). Although these existing studies do provide different perspectives from human research, here we call animal researchers to reconsider the ethics of such methods and develop alternative training systems that for instance, emphasis more on rewards without harming basic needs of animals. 
+An important consideration we draw readers attention to is the aspect considering ethics of the methodology used in cited animal studies (CITE ALL ANIMAL RESEARCH HERE). These studies often involves training animals (e.g. rhesus monkeys) to perform tasks to serve the purpose of research. However, the details of training process is often not fully reported in published papers, which in a lot of cases involves restraining animals from satisfying their physical needs (e.g. starvation). Although these existing studies do provide different perspectives from human research, here we call researchers to reconsider the ethics of such methods and develop alternative training systems that for instance, emphasis more on rewards without harming basic needs of animals. 
 
 # 7. Reference
