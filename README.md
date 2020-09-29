@@ -11,4 +11,8 @@ install.packages('tinytex')
 tinytex::install_tinytex()  # install TinyTeX
 ```
 
-“This is a line from RStudio”
+## Contributing
+We are actively improving the quality of this project. Pull requests are welcome. For major changes, please open an issue first to discuss what you recommend to change.
+
+## Correspondance 
+Any issues concerning this project should be addressed to Chudi Gong at e.gong.16@ucl.ac.uk. 
